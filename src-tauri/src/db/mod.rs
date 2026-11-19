@@ -8,6 +8,7 @@ pub mod capabilities;
 pub mod encryption;
 pub mod folder_upload;
 pub mod night_watcher;
+pub mod plugins;
 pub mod request_logs;
 pub mod settings;
 pub mod transfers;
@@ -630,6 +631,23 @@ const MIGRATIONS: &[Migration] = &[
                    state = 'skipped_exists' AND remote_exists = 0, COUNT(*), SUM(size)
             FROM folder_upload_items
             GROUP BY 1, 2, 3, 4, 5, 6;
+        "#,
+    },
+    Migration {
+        version: 23,
+        // Runtime plugins (docs/PLUGINS.md). Files on disk; key_id/sha256 set by signed installs.
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS plugins (
+                id            TEXT PRIMARY KEY,
+                version       TEXT NOT NULL,
+                source        TEXT NOT NULL,
+                manifest_json TEXT NOT NULL,
+                enabled       INTEGER NOT NULL DEFAULT 1,
+                key_id        TEXT,
+                sha256        TEXT,
+                installed_at  INTEGER NOT NULL,
+                prev_version  TEXT
+            );
         "#,
     },
 ];

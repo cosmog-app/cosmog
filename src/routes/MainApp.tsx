@@ -6,6 +6,7 @@ import Dashboard from "./Dashboard";
 import Logs from "./Logs";
 import NightWatcher from "./NightWatcher";
 import Mcp from "./Mcp";
+import Plugins from "./Plugins";
 import {
   currentView, setCurrentView,
   setAccounts, accounts, browseState, setBrowseState, selectAccount,
@@ -375,6 +376,9 @@ export default function MainApp() {
         <Show when={!IS_MOBILE_OS}>
           <div class="view-slot" classList={{ hidden: currentView() !== "mcp" }}>
             <Mcp />
+          </div>
+          <div class="view-slot" classList={{ hidden: currentView() !== "plugins" }}>
+            <Plugins />
           </div>
         </Show>
         <FolderResumeBanner />

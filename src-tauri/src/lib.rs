@@ -17,6 +17,7 @@ pub mod mcp;
 pub mod night_watcher;
 #[cfg(target_os = "android")]
 pub mod night_watcher_headless;
+pub mod plugins;
 pub mod providers;
 pub mod scheduler;
 pub mod saf;
@@ -149,6 +150,19 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
+        .register_asynchronous_uri_scheme_protocol(plugins::scheme::SCHEME, |ctx, request, responder| {
+            let app = ctx.app_handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let resp = match app.try_state::<plugins::PluginRegistry>() {
+                    Some(reg) => plugins::scheme::serve(reg.root(), &reg, &request).await,
+                    None => tauri::http::Response::builder()
+                        .status(tauri::http::StatusCode::SERVICE_UNAVAILABLE)
+                        .body(Vec::new())
+                        .unwrap_or_default(),
+                };
+                responder.respond(resp);
+            });
+        })
         .setup(|app| {
             use tracing_subscriber::layer::SubscriberExt;
             use tracing_subscriber::util::SubscriberInitExt;
@@ -174,6 +188,8 @@ pub fn run() {
             }
 
             let db_path = app_dir.join("cosmog.sqlite");
+            let plugin_registry = plugins::PluginRegistry::new(app_dir.join("plugins"));
+            app.manage(plugin_registry.clone());
             let log_dir = app_dir.join("logs");
 
             std::fs::create_dir_all(&log_dir).ok();
@@ -259,6 +275,9 @@ pub fn run() {
                 }
 
                 let db = Db::open(&db_path).await.expect("open db");
+                if let Err(e) = plugin_registry.reload(&db).await {
+                    tracing::warn!("plugin registry load failed: {e}");
+                }
                 // Reap transfers orphaned by a crash so the UI shows no ghost-running rows.
                 // Desktop only: on Android the sibling :nightwatch process may own live rows.
                 #[cfg(not(target_os = "android"))]
@@ -505,6 +524,12 @@ pub fn run() {
             commands::mcp::mcp_regenerate_token,
             #[cfg(not(target_os = "android"))]
             commands::mcp::mcp_status,
+
+            commands::plugins::plugin_list,
+            commands::plugins::plugin_set_enabled,
+            commands::plugins::plugin_remove,
+            #[cfg(debug_assertions)]
+            commands::plugins::plugin_dev_load,
 
             #[cfg(debug_assertions)]
             open_devtools,

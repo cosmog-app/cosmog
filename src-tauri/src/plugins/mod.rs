@@ -1,0 +1,100 @@
+//! Runtime plugins: signed web bundles run in a sandboxed iframe. See docs/PLUGINS.md.
+//! The registry is the in-memory view of enabled, platform-compatible installs that the
+//! scheme handler serves from; SQLite (`plugins` table) is the source of truth.
+
+pub mod dev;
+pub mod manifest;
+pub mod scheme;
+
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, RwLock};
+
+use serde::Serialize;
+
+use crate::db::plugins::PluginRow;
+use crate::db::Db;
+use crate::error::AppResult;
+use manifest::{Manifest, Platform};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct InstalledPlugin {
+    pub id: String,
+    pub version: String,
+    pub source: String,
+    pub enabled: bool,
+    pub installed_at: i64,
+    pub manifest: Manifest,
+    /// False when the package is for another platform or its files are gone; never served.
+    pub compatible: bool,
+}
+
+/// Cheap to clone. Managed by Tauri on its own so the scheme handler can serve before AppState exists.
+#[derive(Clone)]
+pub struct PluginRegistry {
+    root: PathBuf,
+    inner: Arc<RwLock<HashMap<String, InstalledPlugin>>>,
+}
+
+pub fn plugin_dir(root: &Path, id: &str, version: &str) -> PathBuf {
+    root.join(id).join(version)
+}
+
+impl PluginRegistry {
+    pub fn new(root: PathBuf) -> Self {
+        Self { root, inner: Arc::new(RwLock::new(HashMap::new())) }
+    }
+
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+
+    pub fn get(&self, id: &str) -> Option<InstalledPlugin> {
+        self.inner.read().ok()?.get(id).cloned()
+    }
+
+    pub fn list(&self) -> Vec<InstalledPlugin> {
+        let mut v: Vec<_> = self.inner.read().map(|m| m.values().cloned().collect()).unwrap_or_default();
+        v.sort_by_key(|p| p.manifest.name.to_lowercase());
+        v
+    }
+
+    /// Rebuilds from the DB. A row whose manifest no longer parses is skipped with a warning.
+    pub async fn reload(&self, db: &Db) -> AppResult<()> {
+        let rows = db.plugins_list().await?;
+        let mut map = HashMap::new();
+        for row in rows {
+            match self.build(&row) {
+                Ok(p) => {
+                    map.insert(p.id.clone(), p);
+                }
+                Err(e) => tracing::warn!("plugin {} skipped: {e}", row.id),
+            }
+        }
+        if let Ok(mut m) = self.inner.write() {
+            *m = map;
+        }
+        Ok(())
+    }
+
+    fn build(&self, row: &PluginRow) -> AppResult<InstalledPlugin> {
+        let manifest = Manifest::parse(&row.manifest_json)?;
+        let on_disk = plugin_dir(&self.root, &row.id, &row.version).join(&manifest.entry).is_file();
+        let platform_ok = manifest.supports(Platform::current());
+        if !on_disk {
+            tracing::warn!("plugin {} {}: files missing, not served", row.id, row.version);
+        }
+        if !platform_ok {
+            tracing::info!("plugin {} is not for this platform, not served", row.id);
+        }
+        Ok(InstalledPlugin {
+            id: row.id.clone(),
+            version: row.version.clone(),
+            source: row.source.clone(),
+            enabled: row.enabled,
+            installed_at: row.installed_at,
+            manifest,
+            compatible: on_disk && platform_ok,
+        })
+    }
+}

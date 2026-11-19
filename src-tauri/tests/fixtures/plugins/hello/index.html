@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Hello plugin</title>
+  <link rel="stylesheet" href="style.css" crossorigin />
+</head>
+<body>
+  <header>
+    <h1>Hello plugin</h1>
+    <p id="summary">Running sandbox checks...</p>
+  </header>
+  <section>
+    <h2>Document</h2>
+    <p id="doc">No document loaded.</p>
+    <textarea id="editor" placeholder="Type to mark the document dirty. Ctrl+S asks the host to save."></textarea>
+  </section>
+  <section>
+    <h2>Sandbox checks</h2>
+    <table><tbody id="checks"></tbody></table>
+    <h2>CSP violations seen</h2>
+    <ul id="violations"></ul>
+    <button id="nav" type="button">Try navigating this frame to example.com</button>
+  </section>
+  <script type="module" crossorigin src="main.js"></script>
+</body>
+</html>

@@ -600,7 +600,7 @@ async fn version_20_database_migrates_to_latest() {
         .call(|c| Ok::<_, tokio_rusqlite::Error>(c.query_row("SELECT MAX(version) FROM schema_migrations", [], |r| r.get(0))?))
         .await
         .unwrap();
-    assert_eq!(max, 22);
+    assert_eq!(max, 23);
     let old = db.get_transfer("old").await.unwrap();
     assert_eq!(old.job_id, None);
     assert_eq!(db.list_transfers(None).await.unwrap().len(), 1);
@@ -624,7 +624,7 @@ async fn version_21_database_migrates_to_22() {
                  DROP TABLE folder_upload_counts; DROP INDEX idx_fui_order;
                  ALTER TABLE folder_upload_jobs DROP COLUMN remote_gen;
                  ALTER TABLE folder_upload_items DROP COLUMN done_etag;
-                 DELETE FROM schema_migrations WHERE version = 22;",
+                 DELETE FROM schema_migrations WHERE version >= 22;",
             )?;
             Ok::<_, tokio_rusqlite::Error>(())
         })

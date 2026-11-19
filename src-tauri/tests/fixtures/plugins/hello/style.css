@@ -1,0 +1,11 @@
+body { font: 13px/1.4 system-ui, sans-serif; margin: 16px; color: #222; background: #fafafa; }
+h1 { font-size: 18px; margin: 0 0 4px; }
+h2 { font-size: 14px; margin: 16px 0 6px; }
+table { border-collapse: collapse; width: 100%; }
+td { border-bottom: 1px solid #ddd; padding: 4px 6px; vertical-align: top; }
+td.s { width: 64px; font-weight: 600; }
+.pass { color: #137333; }
+.fail { color: #c5221f; }
+.info { color: #555; }
+textarea { width: 100%; min-height: 60px; box-sizing: border-box; }
+#summary.fail { font-weight: 600; }

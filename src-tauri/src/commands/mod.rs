@@ -13,6 +13,7 @@ pub mod logs;
 pub mod mcp;
 pub mod night_watcher;
 pub mod objects;
+pub mod plugins;
 pub mod portable;
 pub mod request_logs;
 pub mod search;
