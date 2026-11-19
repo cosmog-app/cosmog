@@ -55,6 +55,7 @@ export const IconEdit         = I("pencil");
 export const IconEye          = I("eye");
 export const IconEyeOff       = I("eye-off");
 export const IconMcp          = I("mcp");
+export const IconPlugin       = I("plugin");
 export const IconSidebar      = I("panel-left");
 export const IconArrowUpLine  = I("arrow-up-from-line");
 export const IconArrowDownLine= I("arrow-down-to-line");

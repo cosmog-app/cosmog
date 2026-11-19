@@ -6,6 +6,7 @@ export default {
   "shell.nav.transfers": "Transferências",
   "shell.nav.nightWatcher": "Night Watcher",
   "shell.nav.mcp": "Servidor MCP",
+  "shell.nav.plugins": "Plugins",
   "shell.nav.logs": "Logs",
   "shell.nav.settings": "Configurações",
   "shell.nav.beta": "beta",

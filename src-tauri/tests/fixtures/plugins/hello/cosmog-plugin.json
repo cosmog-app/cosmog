@@ -1,0 +1,11 @@
+{
+  "id": "hello",
+  "name": "Hello (sandbox test)",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "kind": "document-editor",
+  "entry": "index.html",
+  "platforms": ["desktop"],
+  "fileTypes": [{ "ext": ".hello", "mime": "text/plain", "label": "Hello file" }],
+  "permissions": []
+}

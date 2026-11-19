@@ -1,0 +1,27 @@
+import type { Messages } from "../../types.ts";
+
+export default {
+  "plugins.title": "Plugins",
+  "plugins.intro.lead": "Add editors and tools that store their files in your buckets",
+  "plugins.intro.body": "Plugins run in a sandbox with no network and no access to your credentials. Cosmog does every read and write for them.",
+  "plugins.installed": "Installed",
+  "plugins.empty": "No plugins installed yet.",
+  "plugins.devLoad": "Load unpacked",
+  "plugins.devLoad.pick": "Choose a plugin folder",
+  "plugins.devLoad.done": "Plugin loaded",
+  "plugins.source.dev": "dev",
+  "plugins.incompatible": "Not available on this device",
+  "plugins.open": "Open",
+  "plugins.remove": "Remove",
+  "plugins.remove.title": "Remove {name}?",
+  "plugins.remove.body": "The plugin's files are deleted from this device. Files it saved in your buckets are not touched.",
+  "plugins.harness.back": "Back to plugins",
+  "plugins.harness.loadSample": "Load sample doc",
+  "plugins.harness.serialize": "Serialize",
+  "plugins.harness.bigRoundTrip": "50 MB round trip",
+  "plugins.harness.dirty": "Unsaved changes",
+  "plugins.harness.clean": "No changes",
+  "plugins.harness.waiting": "Waiting for plugin...",
+  "plugins.harness.fault": "Plugin stopped: {reason}",
+  "plugins.harness.saveRequested": "Plugin asked to save",
+} satisfies Messages;

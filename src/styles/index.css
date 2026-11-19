@@ -43,6 +43,7 @@
 @import "./folder-upload.css";
 @import "./night-watcher.css";
 @import "./mcp.css";
+@import "./plugins.css";
 
 /* mobile overrides — loaded last so media queries win */
 @import "./mobile-sidebar.css";

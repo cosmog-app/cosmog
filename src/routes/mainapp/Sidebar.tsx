@@ -10,7 +10,7 @@ import {
 import { providerLabel } from "../../providers";
 import {
   IconDashboard, IconBrowse, IconTransfer, IconSettings,
-  IconSidebar, IconPlus, IconActivity, IconBucket, IconSearch, IconX, IconBug, IconLock, IconEye, IconMcp,
+  IconSidebar, IconPlus, IconActivity, IconBucket, IconSearch, IconX, IconBug, IconLock, IconEye, IconMcp, IconPlugin,
 } from "../../utils/icons";
 import { listEncryptedBuckets } from "../../api/encryption";
 import { IS_MOBILE_OS } from "../../utils/notify";
@@ -27,6 +27,7 @@ const NAV: { view: View; label: () => string; icon: () => JSX.Element; desktopOn
   { view: "transfers", label: () => t("shell.nav.transfers"), icon: () => <IconTransfer size={16} /> },
   { view: "night-watcher", label: () => t("shell.nav.nightWatcher"), icon: () => <IconEye size={16} />, beta: true },
   { view: "mcp",       label: () => t("shell.nav.mcp"),       icon: () => <IconMcp size={16} />, desktopOnly: true, beta: true },
+  { view: "plugins",   label: () => t("shell.nav.plugins"),   icon: () => <IconPlugin size={16} />, desktopOnly: true, beta: true },
   { view: "logs",      label: () => t("shell.nav.logs"),      icon: () => <IconActivity size={16} /> },
   { view: "settings",  label: () => t("shell.nav.settings"),  icon: () => <IconSettings size={16} /> },
 ];

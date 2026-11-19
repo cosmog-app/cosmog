@@ -59,6 +59,10 @@ export default defineConfig(async () => ({
     port: 1420,
     strictPort: true,
     host: host || false,
+    // Tauri injects the app CSP only into bundled assets, so dev mirrors the plugin frame rule here.
+    headers: {
+      "Content-Security-Policy": "frame-src cosmog-plugin: http://cosmog-plugin.localhost",
+    },
     hmr: host
       ? {
           protocol: "ws",

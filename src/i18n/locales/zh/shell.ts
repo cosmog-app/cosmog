@@ -6,6 +6,7 @@ export default {
   "shell.nav.transfers": "传输",
   "shell.nav.nightWatcher": "Night Watcher",
   "shell.nav.mcp": "MCP 服务器",
+  "shell.nav.plugins": "插件",
   "shell.nav.logs": "日志",
   "shell.nav.settings": "设置",
   "shell.nav.beta": "测试版",

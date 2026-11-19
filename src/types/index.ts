@@ -385,3 +385,46 @@ export interface FolderJob {
 }
 
 export interface FolderJobChangedEvent { job_id: string; state: FolderJobState }
+
+// ---- Plugins (docs/PLUGINS.md) ----
+
+export type PluginPlatform = "desktop" | "mobile";
+
+export interface PluginFileType {
+  ext: string;
+  mime: string;
+  label: string;
+  template?: string | null;
+}
+
+export interface PluginManifest {
+  id: string;
+  name: string;
+  version: string;
+  apiVersion: number;
+  kind: "document-editor";
+  entry: string;
+  platforms: PluginPlatform[];
+  minAppVersion?: string | null;
+  fileTypes: PluginFileType[];
+  permissions: string[];
+}
+
+export interface InstalledPlugin {
+  id: string;
+  version: string;
+  source: "dev" | "registry";
+  enabled: boolean;
+  installed_at: number;
+  manifest: PluginManifest;
+  /** False when built for another platform or its files are missing; never loaded. */
+  compatible: boolean;
+}
+
+/** Host <-> plugin protocol v1. Envelope field `cosmog` is the protocol version. */
+export interface PluginRequest { cosmog: 1; id?: string; method: string; params?: unknown }
+export interface PluginReply { cosmog: 1; id: string; result?: unknown; error?: { code: string; message: string } }
+
+export interface PluginDocLoad { name: string; mime: string; bytes: ArrayBuffer; readOnly: boolean }
+export interface PluginDocSerialized { bytes: ArrayBuffer }
+export type PluginToastKind = "info" | "success" | "error";
