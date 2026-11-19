@@ -41,10 +41,19 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
     }
   };
 
+  // Empty bytes = new document, which every plugin must accept.
   const loadSample = () => run("doc.load", async (b) => {
-    const bytes = new TextEncoder().encode(`hello from cosmog at ${new Date().toISOString()}\n`);
-    await b.load({ name: "sample.hello", mime: "text/plain", bytes: bytes.buffer, readOnly: false });
-    return `${bytes.byteLength} bytes`;
+    const ft = props.plugin.manifest.fileTypes[0];
+    await b.load({ name: `untitled${ft?.ext ?? ""}`, mime: ft?.mime ?? "application/octet-stream", bytes: new ArrayBuffer(0), readOnly: false });
+    return "empty document";
+  });
+
+  const reload = () => run("serialize + load", async (b) => {
+    const bytes = await b.serialize();
+    const n = bytes.byteLength;
+    const ft = props.plugin.manifest.fileTypes[0];
+    await b.load({ name: `untitled${ft?.ext ?? ""}`, mime: ft?.mime ?? "application/octet-stream", bytes, readOnly: false });
+    return `${n} bytes`;
   });
 
   const serialize = () => run("doc.serialize", async (b) => {
@@ -74,6 +83,7 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
         <div class="plugins-harness-actions">
           <button class="btn-secondary" disabled={!ready() || busy()} onClick={loadSample}>{t("plugins.harness.loadSample")}</button>
           <button class="btn-secondary" disabled={!ready() || busy()} onClick={serialize}>{t("plugins.harness.serialize")}</button>
+          <button class="btn-secondary" disabled={!ready() || busy()} onClick={reload}>{t("plugins.harness.reload")}</button>
           <button class="btn-secondary" disabled={!ready() || busy()} onClick={bigRoundTrip}>{t("plugins.harness.bigRoundTrip")}</button>
         </div>
       </div>
