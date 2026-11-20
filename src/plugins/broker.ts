@@ -35,6 +35,8 @@ export interface Broker {
   load(doc: PluginDocLoad): Promise<void>;
   serialize(): Promise<ArrayBuffer>;
   setTheme(mode: "light" | "dark"): void;
+  /** The last serialize() result was stored; the plugin moves its dirty baseline there. */
+  saved(): void;
   dispose(): void;
 }
 
@@ -141,6 +143,9 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
     },
     setTheme(mode) {
       void ready.then(() => post({ method: "ui.theme", params: { mode } }), () => {});
+    },
+    saved() {
+      if (!disposed) post({ method: "doc.saved" });
     },
     dispose() {
       disposed = true;

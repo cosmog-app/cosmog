@@ -7,6 +7,8 @@ export function PluginList(props: {
   busy: boolean;
   onToggle: (p: InstalledPlugin, enabled: boolean) => void;
   onOpen: (p: InstalledPlugin) => void;
+  /** Dev builds: protocol test page. */
+  onTest: (p: InstalledPlugin) => void;
   onRemove: (p: InstalledPlugin) => void;
 }) {
   return (
@@ -39,6 +41,11 @@ export function PluginList(props: {
                 <button class="btn-secondary" disabled={props.busy || !p.enabled || !p.compatible} onClick={() => props.onOpen(p)}>
                   {t("plugins.open")}
                 </button>
+                <Show when={import.meta.env.DEV}>
+                  <button class="btn-ghost" disabled={props.busy || !p.enabled || !p.compatible} onClick={() => props.onTest(p)}>
+                    {t("plugins.test")}
+                  </button>
+                </Show>
                 <button class="btn-ghost" disabled={props.busy} onClick={() => props.onRemove(p)}>
                   {t("plugins.remove")}
                 </button>

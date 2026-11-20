@@ -172,12 +172,13 @@ Envelope: `{ "cosmog": 1, "id": "<n>", "method": "<name>", "params": {...} }`, r
 | host -> plugin | `doc.serialize` -> `{ bytes }` | Return current content |
 | host -> plugin | `doc.exportPreview` -> `{ png }` | Optional thumbnail |
 | host -> plugin | `ui.theme` `{ mode: "light" \| "dark" }` | Theme changed |
+| host -> plugin | `doc.saved` | The last `doc.serialize` result is stored; move the dirty baseline there. The host never serializes between a save's serialize and this event |
 | plugin -> host | `doc.dirty` `{ dirty }` | Content changed since last load/save |
 | plugin -> host | `shell.save` | User pressed Ctrl+S inside the iframe (keys do not bubble to the host) |
 | plugin -> host | `ui.toast` `{ kind, text }` | Short message, rate limited |
 
 The SDK (`@cosmog/plugin-sdk` in `cosmog-plugins`) wraps this in a typed client:
-`onLoad`, `onSerialize`, `onExportPreview`, `setDirty`, `requestSave`, `onTheme`, `toast`. The app
+`onLoad`, `onSerialize`, `onExportPreview`, `onSaved`, `setDirty`, `requestSave`, `onTheme`, `toast`. The app
 keeps its own copy of the protocol types in `src/types/index.ts`; `apiVersion` keeps both repos honest.
 
 ## Rust (`src-tauri/src/plugins/`)
