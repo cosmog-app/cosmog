@@ -2,6 +2,7 @@
 // document shell in Phase 2.
 
 import { createSignal, For, Show } from "solid-js";
+import { IconBack, IconList, IconTrash } from "../../utils/icons";
 import type { InstalledPlugin } from "../../types";
 import type { Broker } from "../../plugins/broker";
 import { PluginFrame } from "../../plugins/PluginFrame";
@@ -17,15 +18,19 @@ function fingerprint(b: Uint8Array): string {
   return `${b.byteLength}:${h.toString(16)}`;
 }
 
+type LogLine = { time: string; text: string; err: boolean };
+
 export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => void }) {
   const [broker, setBroker] = createSignal<Broker | null>(null);
   const [ready, setReady] = createSignal(false);
   const [dirty, setDirty] = createSignal(false);
   const [fault, setFault] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
-  const [log, setLog] = createSignal<string[]>([]);
+  const [log, setLog] = createSignal<LogLine[]>([]);
+  const [logOpen, setLogOpen] = createSignal(false);
 
-  const note = (line: string) => setLog((l) => [`${new Date().toLocaleTimeString()}  ${line}`, ...l].slice(0, 50));
+  const note = (text: string, err = false) =>
+    setLog((l) => [{ time: new Date().toLocaleTimeString(), text, err }, ...l].slice(0, 50));
 
   const run = async (label: string, fn: (b: Broker) => Promise<string>) => {
     const b = broker();
@@ -35,7 +40,7 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
     try {
       note(`${label}: ${await fn(b)} (${Math.round(performance.now() - t0)} ms)`);
     } catch (e) {
-      note(`${label} failed: ${String(e)}`);
+      note(`${label} failed: ${String(e)}`, true);
     } finally {
       setBusy(false);
     }
@@ -72,19 +77,32 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
     return `match ${after}`;
   });
 
+  const off = () => !ready() || busy();
+
   return (
     <div class="plugins-harness">
-      <div class="plugins-harness-bar">
-        <button class="btn-ghost" onClick={props.onBack}>{t("plugins.harness.back")}</button>
+      <div class="view-header plugins-harness-bar">
+        <button class="icon-btn" title={t("plugins.harness.back")} aria-label={t("plugins.harness.back")} onClick={props.onBack}>
+          <IconBack size={14} />
+        </button>
         <span class="plugins-harness-name">{props.plugin.manifest.name}</span>
         <span class="plugins-harness-state" classList={{ "plugins-harness-dirty": dirty() }}>
+          <span class="plugins-harness-dot" />
           {dirty() ? t("plugins.harness.dirty") : t("plugins.harness.clean")}
         </span>
         <div class="plugins-harness-actions">
-          <button class="btn-secondary" disabled={!ready() || busy()} onClick={loadSample}>{t("plugins.harness.loadSample")}</button>
-          <button class="btn-secondary" disabled={!ready() || busy()} onClick={serialize}>{t("plugins.harness.serialize")}</button>
-          <button class="btn-secondary" disabled={!ready() || busy()} onClick={reload}>{t("plugins.harness.reload")}</button>
-          <button class="btn-secondary" disabled={!ready() || busy()} onClick={bigRoundTrip}>{t("plugins.harness.bigRoundTrip")}</button>
+          <span class="plugins-harness-label">{t("plugins.harness.tests")}</span>
+          <div class="plugins-harness-group">
+            <button class="btn-ghost" disabled={off()} onClick={loadSample}>{t("plugins.harness.loadSample")}</button>
+            <button class="btn-ghost" disabled={off()} onClick={serialize}>{t("plugins.harness.serialize")}</button>
+            <button class="btn-ghost" disabled={off()} onClick={reload}>{t("plugins.harness.reload")}</button>
+            <button class="btn-ghost" disabled={off()} onClick={bigRoundTrip}>{t("plugins.harness.bigRoundTrip")}</button>
+          </div>
+          <button class="btn-ghost plugins-harness-logbtn" classList={{ "plugins-harness-on": logOpen() }} onClick={() => setLogOpen((o) => !o)}>
+            <IconList size={14} />
+            {t("plugins.harness.log")}
+            <span class="plugins-harness-count">{log().length}</span>
+          </button>
         </div>
       </div>
       <Show when={fault()} fallback={
@@ -101,13 +119,33 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
             onDirty: (d) => { setDirty(d); note(`doc.dirty ${d}`); },
             onSave: () => { note("shell.save"); toast.info(t("plugins.harness.saveRequested")); },
             onToast: (kind, text) => { note(`ui.toast ${kind}: ${text}`); toast.info(text); },
-            onFault: (reason) => { setFault(reason); note(`fault: ${reason}`); },
+            onFault: (reason) => { setFault(reason); note(`fault: ${reason}`, true); },
           }}
         />
       </Show>
-      <ol class="plugins-harness-log">
-        <For each={log()}>{(l) => <li>{l}</li>}</For>
-      </ol>
+      <Show when={logOpen()}>
+        <div class="plugins-harness-log">
+          <div class="plugins-harness-loghead">
+            <span>{t("plugins.harness.log")}</span>
+            <button class="btn-ghost" disabled={log().length === 0} onClick={() => setLog([])}>
+              <IconTrash size={13} />
+              {t("plugins.harness.clear")}
+            </button>
+          </div>
+          <Show when={log().length > 0} fallback={<div class="plugins-harness-logempty">{t("plugins.harness.logEmpty")}</div>}>
+            <ol class="plugins-harness-lines">
+              <For each={log()}>
+                {(l) => (
+                  <li classList={{ "plugins-harness-err": l.err }}>
+                    <span class="plugins-harness-time">{l.time}</span>
+                    <span>{l.text}</span>
+                  </li>
+                )}
+              </For>
+            </ol>
+          </Show>
+        </div>
+      </Show>
     </div>
   );
 }

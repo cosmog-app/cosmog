@@ -90,34 +90,84 @@
 /* harness (phase 1 test page) */
 .plugins-harness { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
-.plugins-harness-bar {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 8px 16px;
-  border-bottom: 1px solid var(--border);
-}
+.plugins-harness-bar { gap: 10px; }
 .plugins-harness-name { color: var(--text); font-weight: 600; font-size: 13px; }
-.plugins-harness-state { color: var(--text-muted); font-size: 12px; }
-.plugins-harness-dirty { color: var(--warn); }
-.plugins-harness-actions { margin-left: auto; display: inline-flex; gap: 8px; }
+
+.plugins-harness-state {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+.plugins-harness-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.plugins-harness-dirty { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); }
+.plugins-harness-dirty .plugins-harness-dot { background: var(--warn); }
+
+.plugins-harness-actions { margin-left: auto; display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.plugins-harness-label {
+  color: var(--text-muted);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.plugins-harness-group {
+  display: inline-flex; align-items: center; gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+.plugins-harness-group .btn-ghost { font-size: 12px; padding: 4px 10px; }
+
+.plugins-harness-logbtn { font-size: 12px; padding: 5px 10px; border: 1px solid var(--border); }
+.plugins-harness-on { color: var(--text); background: var(--bg-hover); }
+.plugins-harness-count {
+  min-width: 18px; padding: 0 5px;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  font-size: 10.5px; text-align: center;
+}
 
 .plugins-harness-note { padding: 8px 16px; color: var(--text-muted); font-size: 12.5px; }
 .plugins-harness-fault { color: var(--err); }
 
+/* Matches the app background so resizes never flash white before the plugin repaints. */
 .plugin-frame {
   flex: 1;
   min-height: 0;
   width: 100%;
   border: 0;
-  background: #fff;
+  display: block;
+  background: var(--bg);
 }
 
 .plugins-harness-log {
   flex: none;
-  max-height: 140px;
-  overflow-y: auto;
-  margin: 0;
-  padding: 8px 16px 8px 32px;
+  display: flex; flex-direction: column;
+  max-height: 180px;
   border-top: 1px solid var(--border);
-  font: 11.5px/1.5 "IBM Plex Mono", monospace;
+  background: var(--panel);
+}
+.plugins-harness-loghead {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 4px 8px 4px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase;
+}
+.plugins-harness-loghead .btn-ghost { font-size: 12px; padding: 3px 8px; text-transform: none; letter-spacing: 0; }
+.plugins-harness-logempty { padding: 10px 14px; color: var(--text-muted); font-size: 12px; }
+
+.plugins-harness-lines {
+  list-style: none;
+  margin: 0; padding: 4px 0;
+  overflow-y: auto;
+  font: 11.5px/1.6 "IBM Plex Mono", monospace;
   color: var(--text-soft);
 }
+.plugins-harness-lines li { display: flex; gap: 12px; padding: 0 14px; }
+.plugins-harness-lines li:hover { background: var(--bg-hover); }
+.plugins-harness-time { flex: none; color: var(--text-muted); }
+.plugins-harness-err { color: var(--err); }
