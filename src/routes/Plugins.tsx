@@ -48,10 +48,10 @@ export default function Plugins() {
 
   return (
     <div class="view-container">
-      <div class="view-header">
-        <span class="section-title">{t("plugins.title")}</span>
-      </div>
-      <Show when={opened()} fallback={
+      <Show when={opened()} fallback={<>
+        <div class="view-header">
+          <span class="section-title">{t("plugins.title")}</span>
+        </div>
         <div class="plugins-body">
           <div class="plugins-intro">
             <div class="plugins-intro-badge"><IconPlugin size={18} /></div>
@@ -79,7 +79,7 @@ export default function Plugins() {
             />
           </div>
         </div>
-      }>
+      </>}>
         {(p) => <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />}
       </Show>
     </div>

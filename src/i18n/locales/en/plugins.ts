@@ -25,4 +25,8 @@ export default {
   "plugins.harness.waiting": "Waiting for plugin...",
   "plugins.harness.fault": "Plugin stopped: {reason}",
   "plugins.harness.saveRequested": "Plugin asked to save",
+  "plugins.harness.tests": "Tests",
+  "plugins.harness.log": "Log",
+  "plugins.harness.clear": "Clear",
+  "plugins.harness.logEmpty": "Nothing logged yet.",
 } satisfies Messages;
