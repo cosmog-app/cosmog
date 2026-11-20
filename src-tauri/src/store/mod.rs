@@ -309,6 +309,22 @@ pub trait ObjectStore: Send + Sync {
         user_metadata: std::collections::HashMap<String, String>,
     ) -> AppResult<()>;
 
+    /// `put_object_bytes` that fails with [`AppError::Conflict`] when `cond` does not hold, and
+    /// returns the new etag. The default checks with HEAD first (racy); S3 sends real preconditions.
+    async fn put_object_bytes_if(
+        &self,
+        bucket: &str,
+        key: &str,
+        content_type: &str,
+        data: Vec<u8>,
+        user_metadata: std::collections::HashMap<String, String>,
+        cond: PutCond,
+    ) -> AppResult<Option<String>> {
+        check_cond_with_head(self, bucket, key, &cond).await?;
+        self.put_object_bytes(bucket, key, content_type, data, user_metadata).await?;
+        Ok(self.head_object(bucket, key).await.ok().and_then(|m| m.etag))
+    }
+
     async fn get_object(
         &self,
         bucket: &str,
@@ -335,6 +351,37 @@ pub trait ObjectStore: Send + Sync {
 }
 
 /// If-None-Match emulation for providers that reject the header: Conflict when `key` exists.
+/// Write precondition for [`ObjectStore::put_object_bytes_if`].
+#[derive(Debug, Clone, Default)]
+pub struct PutCond {
+    /// Object must still have this etag.
+    pub if_match: Option<String>,
+    /// Object must not exist yet.
+    pub if_none_match: bool,
+}
+
+/// Etags compare without quotes; some providers quote them and some don't.
+pub fn etag_eq(a: &str, b: &str) -> bool {
+    a.trim_matches('"') == b.trim_matches('"')
+}
+
+/// HEAD-based precondition check, also used before a real conditional put because some
+/// providers ignore `If-Match`.
+pub async fn check_cond_with_head<S: ObjectStore + ?Sized>(store: &S, bucket: &str, key: &str, cond: &PutCond) -> AppResult<()> {
+    if cond.if_none_match {
+        ensure_absent(store, bucket, key).await?;
+    }
+    if let Some(want) = &cond.if_match {
+        let head = store.head_object(bucket, key).await.map_err(|e| {
+            if e.is_not_found() { AppError::Conflict(format!("{key}: deleted since it was opened")) } else { e }
+        })?;
+        if !head.etag.as_deref().is_some_and(|got| etag_eq(got, want)) {
+            return Err(AppError::Conflict(format!("{key}: changed since it was opened")));
+        }
+    }
+    Ok(())
+}
+
 pub async fn ensure_absent<S: ObjectStore + ?Sized>(store: &S, bucket: &str, key: &str) -> AppResult<()> {
     match store.head_object(bucket, key).await {
         Ok(_) => Err(AppError::Conflict(format!("{key}: exists (checked with HEAD)"))),

@@ -308,6 +308,21 @@ impl ObjectStore for RegionRetryStore {
         )
     }
 
+    async fn put_object_bytes_if(
+        &self,
+        bucket: &str,
+        key: &str,
+        content_type: &str,
+        data: Vec<u8>,
+        user_metadata: std::collections::HashMap<String, String>,
+        cond: crate::store::PutCond,
+    ) -> AppResult<Option<String>> {
+        with_retry!(
+            self, bucket, s,
+            s.put_object_bytes_if(bucket, key, content_type, data.clone(), user_metadata.clone(), cond.clone()).await
+        )
+    }
+
     async fn get_object(
         &self,
         bucket: &str,

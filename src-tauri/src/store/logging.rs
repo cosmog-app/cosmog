@@ -574,6 +574,19 @@ impl ObjectStore for LoggingStore {
         r
     }
 
+    async fn put_object_bytes_if(
+        &self, bucket: &str, key: &str, content_type: &str, data: Vec<u8>,
+        user_metadata: std::collections::HashMap<String, String>, cond: crate::store::PutCond,
+    ) -> AppResult<Option<String>> {
+        let start = Instant::now();
+        let size = data.len();
+        let params = json!({ "content_type": content_type, "content_length": size, "if_match": cond.if_match, "if_none_match": cond.if_none_match });
+        let r = self.inner.put_object_bytes_if(bucket, key, content_type, data, user_metadata, cond).await;
+        self.record("put_object_bytes", "PUT", self.build_url(Some(bucket), Some(key), None),
+            Some(params), None, Some(bucket), Some(key), start, r.is_ok(), r.as_ref().err());
+        r
+    }
+
     async fn get_object(
         &self, bucket: &str, key: &str, dest: PathBuf, opts: GetOptions, ctx: TransferCtx,
     ) -> AppResult<DownloadResult> {

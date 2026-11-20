@@ -363,7 +363,7 @@ const MAX_INMEMORY_PUT_BYTES: usize = 64 * 1024 * 1024;
 
 /// Encrypts `data` via the bucket's age recipient (passthrough when unconfigured);
 /// returns `(bytes, user_metadata)` that callers must forward for HEAD-based detection.
-async fn encrypt_for_bucket(
+pub(crate) async fn encrypt_for_bucket(
     state: &AppState,
     account_id: &str,
     bucket: &str,

@@ -201,9 +201,20 @@ Commands (`commands/plugins.rs`, all `#[tracing::instrument(skip_all, err)]`):
   `plugin_doc_create/rename/delete`, `plugin_draft_get/put/clear`.
 - Phase 3: `plugin_registry_fetch`, `plugin_install`, `plugin_update`, `plugin_rollback`.
 
-Store change for conflicts: `ObjectStore::put_object_bytes` gains `if_match: Option<String>` and returns
-the new etag. `412 Precondition Failed` maps to a new `AppError::Conflict`. Providers that ignore
-`If-Match` are covered by a HEAD + etag compare right before the put.
+Store change for conflicts (built 2026-11-20): a new `ObjectStore::put_object_bytes_if(.., PutCond)`
+returns the new etag. `PutCond { if_match, if_none_match }`. `412 Precondition Failed` maps to the
+existing `AppError::Conflict`. A HEAD + etag compare runs right before the put for providers that ignore
+`If-Match`; stores without a native impl get that check as the trait default.
+
+Wire format (built 2026-11-20, `commands/plugin_docs.rs`, `src/api/plugins.ts`):
+
+- Reads (`plugin_doc_read`, `plugin_draft_get`) return `[u32 LE meta len][meta JSON][bytes]` as a raw
+  `tauri::ipc::Response`. An empty reply means no draft.
+- Writes (`plugin_doc_write`, `plugin_draft_put`) send the bytes as the raw invoke body and their
+  parameters as base64 JSON in an `x-cosmog-meta` header (keys may be non-ASCII).
+- `plugin_doc_write` needs `ifMatch` (save) or `create` (new file); an unconditional write is refused.
+- `plugin_template(pluginId, ext)` returns the template bytes, empty when the file type has none.
+- Rename/delete use the existing object commands; no plugin-specific ones.
 
 Migrations (append-only):
 

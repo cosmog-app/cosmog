@@ -3,6 +3,7 @@
 //! scheme handler serves from; SQLite (`plugins` table) is the source of truth.
 
 pub mod dev;
+pub mod docs;
 pub mod manifest;
 pub mod scheme;
 
@@ -47,6 +48,11 @@ impl PluginRegistry {
 
     pub fn root(&self) -> &Path {
         &self.root
+    }
+
+    /// `<app_data>/plugin_drafts`, next to the install root.
+    pub fn drafts_root(&self) -> PathBuf {
+        self.root.parent().unwrap_or(&self.root).join("plugin_drafts")
     }
 
     pub fn get(&self, id: &str) -> Option<InstalledPlugin> {
