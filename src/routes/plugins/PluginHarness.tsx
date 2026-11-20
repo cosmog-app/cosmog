@@ -7,6 +7,7 @@ import type { InstalledPlugin } from "../../types";
 import type { Broker } from "../../plugins/broker";
 import { PluginFrame } from "../../plugins/PluginFrame";
 import { toast } from "../../state/toast";
+import { collapseSidebarWhileMounted } from "../../state/sidebar";
 import { t } from "../../i18n";
 
 const BIG_BYTES = 50 * 1024 * 1024;
@@ -27,6 +28,8 @@ export function PluginHarness(props: { plugin: InstalledPlugin; onBack: () => vo
   const [fault, setFault] = createSignal<string | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [log, setLog] = createSignal<LogLine[]>([]);
+  // Editors need the width.
+  collapseSidebarWhileMounted();
   const [logOpen, setLogOpen] = createSignal(false);
 
   const note = (text: string, err = false) =>

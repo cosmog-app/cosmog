@@ -41,6 +41,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Sidebar } from "./mainapp/Sidebar";
 import { MobileHeader } from "./mainapp/MobileHeader";
 import { notifyLanded } from "../state/landed";
+import { sidebarCollapsed, setSidebarCollapsed } from "../state/sidebar";
 import { ActiveTransfersBar } from "./mainapp/ActiveTransfersBar";
 import { FolderResumeBanner } from "./mainapp/FolderResumeBanner";
 import { watchFolderJobNotifications } from "./mainapp/folderJobNotify";
@@ -53,7 +54,6 @@ import { t, type TKey } from "../i18n";
 type XferKind = "start" | "startBody" | "canceled" | "canceledBody" | "done" | "doneBody" | "failed" | "failedBody" | "failedBodyErr" | "saveFailedBody";
 
 export default function MainApp() {
-  const [collapsed, setCollapsed] = createSignal(false);
   const [activeCount, setActiveCount] = createSignal(0);
   const [drawerOpen, setDrawerOpen] = createSignal(false);
 
@@ -327,9 +327,9 @@ export default function MainApp() {
         when={isMobile()}
         fallback={
           <Sidebar
-            collapsed={collapsed()}
-            onCollapse={() => setCollapsed(true)}
-            onExpand={() => setCollapsed(false)}
+            collapsed={sidebarCollapsed()}
+            onCollapse={() => setSidebarCollapsed(true)}
+            onExpand={() => setSidebarCollapsed(false)}
             activeAccount={activeAccount()}
             activeCount={sidebarCount()}
           />
