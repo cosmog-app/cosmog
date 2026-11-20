@@ -8,11 +8,13 @@ import { confirmDialog } from "../state/confirm";
 import { t } from "../i18n";
 import { PluginList } from "./plugins/PluginList";
 import { PluginHarness } from "./plugins/PluginHarness";
+import { DocumentShell } from "../plugins/DocumentShell";
 
 export default function Plugins() {
   const [plugins, { refetch }] = createResource(pluginList, { initialValue: [] });
   const [busy, setBusy] = createSignal(false);
   const [openId, setOpenId] = createSignal<string | null>(null);
+  const [testing, setTesting] = createSignal(false);
   const opened = () => plugins().find((p) => p.id === openId() && p.enabled && p.compatible) ?? null;
 
   const act = async (fn: () => Promise<unknown>) => {
@@ -74,13 +76,18 @@ export default function Plugins() {
                 if (!enabled && openId() === p.id) setOpenId(null);
                 await pluginSetEnabled(p.id, enabled);
               })}
-              onOpen={(p) => setOpenId(p.id)}
+              onOpen={(p) => { setTesting(false); setOpenId(p.id); }}
+              onTest={(p) => { setTesting(true); setOpenId(p.id); }}
               onRemove={remove}
             />
           </div>
         </div>
       </>}>
-        {(p) => <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />}
+        {(p) => (
+          <Show when={testing()} fallback={<DocumentShell plugin={p()} onBack={() => setOpenId(null)} />}>
+            <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />
+          </Show>
+        )}
       </Show>
     </div>
   );

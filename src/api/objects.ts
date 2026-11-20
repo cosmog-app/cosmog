@@ -77,7 +77,7 @@ export const headObject = (
   accountId: string,
   bucket: string,
   key: string,
-): Promise<{ key: string; size: number; content_type: string | null }> =>
+): Promise<{ key: string; size: number; content_type: string | null; etag?: string | null }> =>
   invoke("head_object", { accountId, bucket, key });
 
 export const putObjectBytes = (
