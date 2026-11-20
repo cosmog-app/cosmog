@@ -428,3 +428,21 @@ export interface PluginReply { cosmog: 1; id: string; result?: unknown; error?: 
 export interface PluginDocLoad { name: string; mime: string; bytes: ArrayBuffer; readOnly: boolean }
 export interface PluginDocSerialized { bytes: ArrayBuffer }
 export type PluginToastKind = "info" | "success" | "error";
+
+export interface PluginWorkspace {
+  id: string;
+  pluginId: string;
+  label: string;
+  accountId: string;
+  bucket: string;
+  /** Empty or ending in "/". */
+  prefix: string;
+  createdAt: number;
+}
+
+export interface PluginDocEntry { key: string; size: number; lastModified: number | null; etag: string | null }
+export interface PluginDocMeta { etag: string | null; contentType: string | null; lastModified: number | null }
+export interface PluginDraftMeta { baseEtag: string | null; savedAt: number; encrypted: boolean }
+
+/** Where a document lives. */
+export interface PluginDocRef { accountId: string; bucket: string; key: string }

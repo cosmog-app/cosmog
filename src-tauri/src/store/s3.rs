@@ -481,6 +481,39 @@ impl ObjectStore for S3Store {
         Ok(())
     }
 
+    async fn put_object_bytes_if(
+        &self,
+        bucket: &str,
+        key: &str,
+        content_type: &str,
+        data: Vec<u8>,
+        user_metadata: std::collections::HashMap<String, String>,
+        cond: crate::store::PutCond,
+    ) -> AppResult<Option<String>> {
+        // Providers that ignore If-Match still get caught here.
+        crate::store::check_cond_with_head(self, bucket, key, &cond).await?;
+        let len = data.len() as i64;
+        let mut req = self.client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .content_type(content_type)
+            .content_length(len)
+            .set_if_match(cond.if_match.clone());
+        if cond.if_none_match {
+            req = req.if_none_match("*");
+        }
+        for (k, v) in user_metadata {
+            req = req.metadata(k, v);
+        }
+        let resp = req
+            .body(ByteStream::from(data))
+            .send()
+            .await
+            .map_err(|e| classify_aws("put_object_bytes", e))?;
+        Ok(resp.e_tag().map(|s| s.to_string()))
+    }
+
     async fn create_folder(&self, bucket: &str, prefix: &str) -> AppResult<()> {
         self.put_marker(bucket, prefix, false).await
     }

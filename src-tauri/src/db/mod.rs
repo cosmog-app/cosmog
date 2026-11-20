@@ -8,6 +8,7 @@ pub mod capabilities;
 pub mod encryption;
 pub mod folder_upload;
 pub mod night_watcher;
+pub mod plugin_workspaces;
 pub mod plugins;
 pub mod request_logs;
 pub mod settings;
@@ -648,6 +649,24 @@ const MIGRATIONS: &[Migration] = &[
                 installed_at  INTEGER NOT NULL,
                 prev_version  TEXT
             );
+        "#,
+    },
+    Migration {
+        version: 24,
+        // Where a document plugin keeps its files. Not tied to the plugins row, so a reinstall
+        // keeps the user's workspaces.
+        sql: r#"
+            CREATE TABLE IF NOT EXISTS plugin_workspaces (
+                id          TEXT PRIMARY KEY,
+                plugin_id   TEXT NOT NULL,
+                label       TEXT NOT NULL,
+                account_id  TEXT NOT NULL,
+                bucket      TEXT NOT NULL,
+                prefix      TEXT NOT NULL DEFAULT '',
+                created_at  INTEGER NOT NULL,
+                FOREIGN KEY(account_id) REFERENCES accounts(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS plugin_workspaces_plugin ON plugin_workspaces(plugin_id);
         "#,
     },
 ];
