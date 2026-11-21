@@ -12,7 +12,7 @@ function rich(msg: string, nodes: Record<string, JSX.Element>): JSX.Element[] {
   return msg.split(/(\{\w+\})/).map((p) => (/^\{\w+\}$/.test(p) ? nodes[p.slice(1, -1)] ?? p : p));
 }
 
-const GITHUB_ISSUES_URL = "https://github.com/echosonusharma/cosmog/issues";
+const GITHUB_ISSUES_URL = "https://github.com/cosmog-app/cosmog/issues";
 
 const isTauri = typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 

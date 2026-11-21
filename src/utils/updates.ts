@@ -1,5 +1,5 @@
-const RELEASES_API = "https://api.github.com/repos/echosonusharma/cosmog/releases/latest";
-export const RELEASES_PAGE = "https://github.com/echosonusharma/cosmog/releases/latest";
+const RELEASES_API = "https://api.github.com/repos/cosmog-app/cosmog/releases/latest";
+export const RELEASES_PAGE = "https://github.com/cosmog-app/cosmog/releases/latest";
 
 export type UpdateInfo = { version: string; changelog: string };
 
