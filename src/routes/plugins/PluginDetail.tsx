@@ -62,6 +62,16 @@ export function PluginDetail(props: {
           <section class="pstore-about">
             <div class="settings-section-title">{t("plugins.detail.about")}</div>
             <For each={paragraphs()}>{(p) => <p class="pstore-para">{p}</p>}</For>
+            <Show when={e().upstream}>
+              {(u) => (
+                <div class="pstore-credit">
+                  <span class="pstore-credit-text">{t("plugins.detail.credit", { name: u().name })}</span>
+                  <button class="pstore-link" title={u().url} onClick={() => openUrl(u().url).catch(() => {})}>
+                    <IconLink size={13} /> {u().name}
+                  </button>
+                </div>
+              )}
+            </Show>
             <Show when={types()}>
               <p class="pstore-howto">{t("plugins.detail.howto", { types: types() })}</p>
             </Show>

@@ -39,6 +39,7 @@ export default {
   "plugins.detail.repository": "Source code",
   "plugins.detail.homepage": "Website",
   "plugins.detail.upstream": "Built on {name}",
+  "plugins.detail.credit": "Built on {name}, open source software by its own authors. This plugin packages it for Cosmog; the credit for the editor is theirs.",
   "plugins.remove": "Remove",
   "plugins.remove.title": "Remove {name}?",
   "plugins.remove.body": "The plugin's files are deleted from this device. Files it saved in your buckets are not touched.",

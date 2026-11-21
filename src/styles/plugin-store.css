@@ -123,3 +123,14 @@
 @media (max-width: 900px) {
   .pstore-detail { grid-template-columns: 1fr; }
 }
+
+.pstore-credit {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent-line);
+  border-radius: var(--radius);
+  background: var(--accent-soft);
+}
+.pstore-credit-text { color: var(--text-soft); font-size: 12.5px; line-height: 1.5; }
+.pstore-credit .pstore-link { flex: none; }
