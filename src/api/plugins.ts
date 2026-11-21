@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { InstalledPlugin, PluginDocMeta, PluginDocRef, PluginDraftMeta } from "../types";
+import { listen } from "@tauri-apps/api/event";
+import type { InstalledPlugin, PluginDocMeta, PluginDocRef, PluginDraftMeta, StoreEntry } from "../types";
 
 export const pluginList = (): Promise<InstalledPlugin[]> => invoke("plugin_list");
 
@@ -10,6 +11,17 @@ export const pluginRemove = (id: string): Promise<void> => invoke("plugin_remove
 
 /** Debug builds only; the command is not registered in release. */
 export const pluginDevLoad = (path: string): Promise<InstalledPlugin> => invoke("plugin_dev_load", { path });
+
+// ── store (phase 3) ──
+
+export const pluginStoreList = (): Promise<StoreEntry[]> => invoke("plugin_store_list");
+
+/** Installs or updates to the version the store lists now; the backend re-reads the catalog. */
+export const pluginInstall = (id: string): Promise<InstalledPlugin> => invoke("plugin_install", { id });
+
+export interface InstallProgress { id: string; done: number; total: number | null }
+export const onInstallProgress = (fn: (p: InstallProgress) => void) =>
+  listen<InstallProgress>("plugin-install-progress", (e) => fn(e.payload));
 
 // ── document plugins (phase 2) ──
 

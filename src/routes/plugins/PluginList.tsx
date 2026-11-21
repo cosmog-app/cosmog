@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import type { InstalledPlugin } from "../../types";
 import { t } from "../../i18n";
+import { PluginIcon } from "./PluginIcon";
 
 export function PluginList(props: {
   plugins: InstalledPlugin[];
@@ -16,6 +17,7 @@ export function PluginList(props: {
         <For each={props.plugins}>
           {(p) => (
             <li class="plugins-item" classList={{ "plugins-item-off": !p.compatible }}>
+              <PluginIcon src={p.icon} size="sm" />
               <div class="plugins-item-main">
                 <span class="plugins-item-name">{p.manifest.name}</span>
                 <span class="plugins-item-meta">

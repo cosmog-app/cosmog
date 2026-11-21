@@ -47,6 +47,14 @@ pub struct FileType {
     pub template: Option<String>,
 }
 
+/// A named link shown on the store page, e.g. the project a plugin is built on.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Link {
+    pub name: String,
+    pub url: String,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Manifest {
@@ -63,6 +71,27 @@ pub struct Manifest {
     pub file_types: Vec<FileType>,
     #[serde(default)]
     pub permissions: Vec<String>,
+    // Store listing. Display only; nothing here grants anything.
+    /// One line under the name.
+    #[serde(default)]
+    pub summary: Option<String>,
+    /// Plain text, paragraphs split by blank lines.
+    #[serde(default)]
+    pub description: Option<String>,
+    /// PNG or SVG inside the package.
+    #[serde(default)]
+    pub icon: Option<String>,
+    #[serde(default)]
+    pub author: Option<String>,
+    /// SPDX id, e.g. "MIT".
+    #[serde(default)]
+    pub license: Option<String>,
+    #[serde(default)]
+    pub homepage: Option<String>,
+    #[serde(default)]
+    pub repository: Option<String>,
+    #[serde(default)]
+    pub upstream: Option<Link>,
 }
 
 impl Manifest {
@@ -122,6 +151,7 @@ impl Manifest {
                 safe_rel_path(t).map_err(|e| invalid(format!("fileTypes {} template: {e}", ft.ext)))?;
             }
         }
+        self.validate_listing()?;
         for p in &self.permissions {
             if !KNOWN_PERMISSIONS.contains(&p.as_str()) {
                 return Err(invalid(format!("permission {p:?} is not supported")));
@@ -130,10 +160,42 @@ impl Manifest {
         Ok(())
     }
 
-    /// Entry and templates must exist as regular files inside `dir`.
+    fn validate_listing(&self) -> AppResult<()> {
+        let short = [("summary", &self.summary, 140), ("author", &self.author, 80), ("license", &self.license, 40)];
+        for (field, v, max) in short {
+            if v.as_deref().is_some_and(|v| v.trim().is_empty() || v.chars().count() > max) {
+                return Err(invalid(format!("{field} must be 1-{max} chars")));
+            }
+        }
+        if self.description.as_deref().is_some_and(|d| d.chars().count() > 4000) {
+            return Err(invalid("description must be at most 4000 chars".into()));
+        }
+        if let Some(icon) = &self.icon {
+            safe_rel_path(icon).map_err(|e| invalid(format!("icon: {e}")))?;
+            if !(icon.ends_with(".png") || icon.ends_with(".svg")) {
+                return Err(invalid("icon must be a .png or .svg".into()));
+            }
+        }
+        let mut urls = vec![("homepage", self.homepage.as_deref()), ("repository", self.repository.as_deref())];
+        if let Some(u) = &self.upstream {
+            if u.name.trim().is_empty() || u.name.len() > 64 {
+                return Err(invalid("upstream name must be 1-64 chars".into()));
+            }
+            urls.push(("upstream url", Some(u.url.as_str())));
+        }
+        for (field, url) in urls {
+            if url.is_some_and(|u| !is_https_url(u)) {
+                return Err(invalid(format!("{field} must be an https:// URL")));
+            }
+        }
+        Ok(())
+    }
+
+    /// Entry, templates and icon must exist as regular files inside `dir`.
     pub async fn validate_files(&self, dir: &Path) -> AppResult<()> {
         let mut paths = vec![self.entry.as_str()];
         paths.extend(self.file_types.iter().filter_map(|f| f.template.as_deref()));
+        paths.extend(self.icon.as_deref());
         for rel in paths {
             let meta = tokio::fs::symlink_metadata(dir.join(rel)).await;
             if !matches!(meta, Ok(m) if m.is_file()) {
@@ -146,6 +208,11 @@ impl Manifest {
 
 fn invalid(msg: String) -> AppError {
     AppError::InvalidInput(msg)
+}
+
+/// Links open in the system browser; only plain https.
+pub fn is_https_url(u: &str) -> bool {
+    u.len() <= 512 && u.starts_with("https://") && u.len() > 8 && !u.chars().any(|c| c.is_whitespace() || c.is_control())
 }
 
 pub fn valid_id(id: &str) -> bool {

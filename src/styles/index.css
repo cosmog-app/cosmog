@@ -45,6 +45,7 @@
 @import "./mcp.css";
 @import "./plugins.css";
 @import "./plugin-editor.css";
+@import "./plugin-store.css";
 
 /* mobile overrides — loaded last so media queries win */
 @import "./mobile-sidebar.css";

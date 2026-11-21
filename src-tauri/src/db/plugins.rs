@@ -98,3 +98,36 @@ impl Db {
         Ok(())
     }
 }
+
+/// What a signed store install records next to the manifest.
+#[derive(Debug, Clone)]
+pub struct SignedInstall {
+    pub key_id: String,
+    pub sha256: String,
+    /// Version kept on disk for rollback, if any.
+    pub prev_version: Option<String>,
+}
+
+impl Db {
+    /// Insert or replace a store install. Keeps the user's enabled flag on update.
+    pub async fn plugin_upsert_signed(&self, id: &str, version: &str, manifest_json: &str, s: SignedInstall) -> AppResult<()> {
+        let (id, version, json) = (id.to_owned(), version.to_owned(), manifest_json.to_owned());
+        let now = Utc::now().timestamp();
+        self.conn
+            .call(move |c| {
+                c.execute(
+                    "INSERT INTO plugins (id, version, source, manifest_json, enabled, key_id, sha256, installed_at, prev_version)
+                     VALUES (?1, ?2, 'registry', ?3, 1, ?4, ?5, ?6, ?7)
+                     ON CONFLICT(id) DO UPDATE SET
+                        version = excluded.version, source = excluded.source,
+                        manifest_json = excluded.manifest_json, key_id = excluded.key_id,
+                        sha256 = excluded.sha256, installed_at = excluded.installed_at,
+                        prev_version = excluded.prev_version",
+                    params![id, version, json, s.key_id, s.sha256, now, s.prev_version],
+                )?;
+                Ok::<_, tokio_rusqlite::Error>(())
+            })
+            .await?;
+        Ok(())
+    }
+}
