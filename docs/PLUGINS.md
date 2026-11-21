@@ -173,6 +173,7 @@ Envelope: `{ "cosmog": 1, "id": "<n>", "method": "<name>", "params": {...} }`, r
 | host -> plugin | `doc.exportPreview` -> `{ png }` | Optional thumbnail |
 | host -> plugin | `ui.theme` `{ mode: "light" \| "dark" }` | Theme changed |
 | host -> plugin | `doc.saved` | The last `doc.serialize` result is stored; move the dirty baseline there. The host never serializes between a save's serialize and this event |
+| host -> plugin | `ui.pinch` | `{x, y, deltaY}` in frame px. Linux only: Rust (`src-tauri/src/pinch_linux.rs`) swallows touchpad pinches, which WebKitGTK would turn into whole-page zoom, and the host forwards them (`src/utils/pinch.ts`). The SDK replays each as a Ctrl+wheel event at that point, like browsers report a trackpad pinch |
 | plugin -> host | `doc.dirty` `{ dirty }` | Content changed since last load/save |
 | plugin -> host | `shell.save` | User pressed Ctrl+S inside the iframe (keys do not bubble to the host) |
 | plugin -> host | `ui.toast` `{ kind, text }` | Short message, rate limited |

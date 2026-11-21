@@ -18,6 +18,8 @@ pub mod night_watcher;
 #[cfg(target_os = "android")]
 pub mod night_watcher_headless;
 pub mod plugins;
+#[cfg(target_os = "linux")]
+mod pinch_linux;
 pub mod providers;
 pub mod scheduler;
 pub mod saf;
@@ -190,6 +192,10 @@ pub fn run() {
             let db_path = app_dir.join("cosmog.sqlite");
             let plugin_registry = plugins::PluginRegistry::new(app_dir.join("plugins"));
             app.manage(plugin_registry.clone());
+            #[cfg(target_os = "linux")]
+            if let Some(w) = app.get_webview_window("main") {
+                pinch_linux::install(&w);
+            }
             let log_dir = app_dir.join("logs");
 
             std::fs::create_dir_all(&log_dir).ok();

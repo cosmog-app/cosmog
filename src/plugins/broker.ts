@@ -37,12 +37,18 @@ export interface Broker {
   setTheme(mode: "light" | "dark"): void;
   /** The last serialize() result was stored; the plugin moves its dirty baseline there. */
   saved(): void;
+  /** Pinch caught by the host (Linux), in frame coordinates; the plugin replays it as Ctrl+wheel. */
+  pinch(x: number, y: number, deltaY: number): void;
   dispose(): void;
 }
 
 type Pending = { resolve: (v: unknown) => void; reject: (e: Error) => void; timer: number };
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null;
+
+// Lets host-wide input (pinch) find the plugin under the pointer.
+const byFrame = new WeakMap<HTMLIFrameElement, Broker>();
+export const brokerForFrame = (f: HTMLIFrameElement) => byFrame.get(f) ?? null;
 
 export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker {
   let seq = 0;
@@ -129,7 +135,7 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
     });
   };
 
-  return {
+  const broker: Broker = {
     ready,
     async load(doc) {
       if (doc.bytes.byteLength > MAX_PLUGIN_BYTES) throw new Error("document too large for plugin");
@@ -147,6 +153,9 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
     saved() {
       if (!disposed) post({ method: "doc.saved" });
     },
+    pinch(x, y, deltaY) {
+      if (!disposed) post({ method: "ui.pinch", params: { x, y, deltaY } });
+    },
     dispose() {
       disposed = true;
       window.removeEventListener("message", onMessage);
@@ -156,6 +165,9 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
       }
       pending.clear();
       failReady(new Error("plugin closed"));
+      byFrame.delete(frame);
     },
   };
+  byFrame.set(frame, broker);
+  return broker;
 }
