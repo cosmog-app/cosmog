@@ -7,8 +7,8 @@ Status: Phase 1 runtime built 2026-11-18; manual sandbox matrix pending. First p
 Users install plugins at runtime from a Plugins tab. Plugins are not shipped with the app. A plugin uses
 Cosmog's accounts and S3 layer for storage without ever seeing credentials, keys or the Tauri IPC.
 
-First target: an Excalidraw plugin that stores many drawings in user-chosen bucket locations, with
-open, edit and save from both the plugin page and the bucket browser.
+First target: an Excalidraw plugin that opens, edits and saves `.excalidraw` files anywhere in a
+bucket, from the bucket browser, the way images open in the image editor.
 
 ## Decisions
 
@@ -17,9 +17,9 @@ open, edit and save from both the plugin page and the bucket browser.
 | Runtime | Signed web bundle (zip) in a sandboxed iframe, talking to the host via `postMessage` |
 | Trust | First-party only. App trusts plugins signed by keys compiled into the app |
 | Platforms | Manifest `platforms` is required: `"desktop"`, `"mobile"` or both. Excalidraw is desktop only |
-| Storage | Several workspaces per plugin (account + bucket + prefix), added by the user |
-| File UI | Cosmog renders the document shell (file list, tabs, save, conflicts). Plugin renders the editor only |
-| Open with | Allowed for files outside workspaces; scoped to that one object for that tab |
+| Storage | None of its own. A plugin opens files from any bucket, like the image editor (no workspaces) |
+| File UI | Bucket browser opens a matching file in a full-window editor over the app (name, Save, close, conflicts). Plugin renders the editor only |
+| Open with | Preview pane button and right-click "Open in <plugin>"; New File lists plugin file types. One document at a time |
 | Saving | Manual (Ctrl+S / Save). Local draft kept until saved. Unsaved-changes guard on close |
 | Images | Embedded base64 in the `.excalidraw` JSON (portable to excalidraw.com) |
 | Updates | Badge + user clicks update. Permission increases shown first. Previous version kept for rollback |
@@ -33,8 +33,8 @@ open, edit and save from both the plugin page and the bucket browser.
 Plugins tab --install--> Rust: fetch index.json -> download zip -> verify sha256 + ed25519 (keyId)
                                                        \-> <app_data>/plugins/<id>/<version>/
 
-Plugin page / "Open in <plugin>" from the browser
-  DocumentShell (host, Solid)            file list, tabs, save, drafts, conflicts
+"Open in <plugin>" from the bucket browser
+  PluginEditor (host, Solid)             one document: save, drafts, conflicts
     |  invoke() plugin_doc_read / plugin_doc_write (raw bytes, If-Match)
     |
     +-- <iframe sandbox="allow-scripts" src="cosmog-plugin://localhost/<id>/<ver>/index.html">
@@ -196,10 +196,9 @@ keeps its own copy of the protocol types in `src/types/index.ts`; `apiVersion` k
 Commands (`commands/plugins.rs`, all `#[tracing::instrument(skip_all, err)]`):
 
 - Phase 1: `plugin_list`, `plugin_dev_load(path)` (debug builds only), `plugin_remove`, `plugin_set_enabled`.
-- Phase 2: `plugin_workspace_list/add/remove`, `plugin_doc_list(workspace_id)`,
-  `plugin_doc_read(account, bucket, key)` -> raw bytes + etag (`tauri::ipc::Response`, no JSON number arrays),
+- Phase 2: `plugin_doc_read(account, bucket, key)` -> raw bytes + etag (`tauri::ipc::Response`, no JSON number arrays),
   `plugin_doc_write(account, bucket, key, mime, if_match)` with a raw request body -> new etag,
-  `plugin_doc_create/rename/delete`, `plugin_draft_get/put/clear`.
+  `plugin_template`, `plugin_draft_get/put/clear`.
 - Phase 3: `plugin_registry_fetch`, `plugin_install`, `plugin_update`, `plugin_rollback`.
 
 Store change for conflicts (built 2026-11-20): a new `ObjectStore::put_object_bytes_if(.., PutCond)`
@@ -224,7 +223,7 @@ Migrations (append-only):
 - Phase 1 (migration 23): `plugins(id PK, version, source 'dev'|'registry', manifest_json, enabled, key_id, sha256, installed_at, prev_version)`.
   No path column: the dir is always `<app_data>/plugins/<id>/<version>/`, so a restored DB on another
   machine never points at a stale absolute path. A row whose files are missing is listed as incompatible.
-- Phase 2: `plugin_workspaces(id PK, plugin_id, label, account_id, bucket, prefix, created_at)`.
+- Migration 24 drops `plugin_workspaces`, a table from an unreleased build of this branch (workspaces were removed).
 
 Files on disk: `<app_data>/plugins/<id>/<version>/`, drafts in `<app_data>/plugin_drafts/<id>/<hash>.bin`.
 
@@ -232,20 +231,22 @@ Files on disk: `<app_data>/plugins/<id>/<version>/`, drafts in `<app_data>/plugi
 
 | Path | Purpose |
 | --- | --- |
-| `src/routes/Plugins.tsx` + `src/routes/plugins/` | Catalog, installed list, workspaces, dev load |
+| `src/routes/Plugins.tsx` + `src/routes/plugins/` | Catalog, installed list, dev load, protocol test page (dev) |
 | `src/plugins/broker.ts` | One broker per iframe: frame identity, request ids, timeouts, size caps |
 | `src/plugins/PluginFrame.tsx` | Creates the sandboxed iframe, wires the broker |
-| `src/plugins/DocumentShell.tsx` | Workspace switcher, file list, tabs, Save, draft restore, conflict dialog |
+| `src/plugins/PluginEditor.tsx` | Full-window editor for one document: Save, close guard, draft restore, conflict dialog |
+| `src/plugins/shell/docTab.ts` | Document controller: read, conditional save, drafts, conflict resolution |
 | `src/api/plugins.ts` | Thin `invoke()` wrappers |
-| `src/styles/plugins.css` | All plugin UI styles |
+| `src/styles/plugins.css`, `plugin-editor.css` | Plugin UI styles |
 
-- `View` gains `"plugins"`. Sidebar entry is `desktopOnly` while no mobile plugin exists. Each enabled
-  `document-editor` plugin adds a sidebar entry for its shell page.
-- One iframe per open tab (keeps per-document undo), cap 4 live; the least recent saved tab is unloaded.
-  A dirty tab is never unloaded.
-- Unsaved guard reuses the `folderCloseGuard` pattern for window close.
-- Bucket browser: objects matching a plugin `fileTypes.ext` get "Open in <plugin>". New File modal lists
-  plugin file types using the plugin `template`.
+- `View` gains `"plugins"` (manage installed plugins). Sidebar entry is `desktopOnly` while no mobile plugin exists.
+- The editor is mounted by `MainApp` from `openDoc` in `src/state/plugins.ts`, over every view.
+- Unsaved guard: `src/routes/mainapp/closeGuard.ts` (was the folder-job guard) also asks before quitting
+  while a plugin document is open: it runs the editor's own close (Save / Don't save / Cancel). Close
+  checks the plugin's dirty flag and also compares a SHA-256 of a fresh serialize with the loaded/saved
+  one, so a missed dirty message can't lose work. App-wide plugin state is `src/state/plugins.ts`.
+- Bucket browser: objects matching a plugin `fileTypes.ext` get "Open in <plugin>" (preview pane and
+  right-click). New File lists plugin file types, writes the plugin `template` and opens it.
 - App CSP (`tauri.conf.json`) adds `frame-src cosmog-plugin: http://cosmog-plugin.localhost`.
 
 ## Excalidraw plugin (`cosmog-plugins/plugins/excalidraw`)
@@ -271,11 +272,11 @@ scripts/sign.ts         builds statement, signs with key from env
 ## Phases
 
 1. **Runtime spike** (desktop): scheme, sandboxed iframe, broker, dev load, hello plugin. Details below.
-2. **Document shell + Excalidraw**: workspaces, doc read/write with If-Match, drafts, tabs, unsaved guard,
-   open-with, New File entry, Excalidraw plugin loaded via dev load.
+2. **Document editor + Excalidraw**: open from the browser, doc read/write with If-Match, drafts, unsaved guard,
+   New File entry, Excalidraw plugin loaded via dev load.
 3. **Registry + install**: new deps, signing keys, install/update/rollback, Plugins catalog UI, CI in
    `cosmog-plugins`.
-4. **Polish**: thumbnails in the file list, version history from the shell, i18n strings, DOCS.md section.
+4. **Polish**: preview thumbnails, version history from the editor, i18n strings, DOCS.md section.
 5. **Later**: `panel` kind with Rust-enforced storage grants, mobile plugins, images as separate objects,
    more editors (draw.io, Mermaid).
 

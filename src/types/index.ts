@@ -429,18 +429,6 @@ export interface PluginDocLoad { name: string; mime: string; bytes: ArrayBuffer;
 export interface PluginDocSerialized { bytes: ArrayBuffer }
 export type PluginToastKind = "info" | "success" | "error";
 
-export interface PluginWorkspace {
-  id: string;
-  pluginId: string;
-  label: string;
-  accountId: string;
-  bucket: string;
-  /** Empty or ending in "/". */
-  prefix: string;
-  createdAt: number;
-}
-
-export interface PluginDocEntry { key: string; size: number; lastModified: number | null; etag: string | null }
 export interface PluginDocMeta { etag: string | null; contentType: string | null; lastModified: number | null }
 export interface PluginDraftMeta { baseEtag: string | null; savedAt: number; encrypted: boolean }
 

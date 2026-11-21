@@ -27,6 +27,8 @@ export function ContextMenu(props: {
   onRename: (obj: CachedObjectMeta) => void;
   onVersionHistory: (obj: CachedObjectMeta) => void;
   onDelete: (obj: CachedObjectMeta) => void;
+  /** A document plugin that edits this file, if any. */
+  openWith?: (obj: CachedObjectMeta) => { label: string; run: () => void } | null;
 }) {
   const m = () => props.menu;
   const pane = () => m().kind === "pane" ? m() as { kind: "pane"; x: number; y: number; prefix: string } : null;
@@ -71,6 +73,13 @@ export function ContextMenu(props: {
       </Show>
       <Show when={file()}>
         {(f) => (<>
+          <Show when={props.openWith?.(f().obj)}>
+            {(w) => (
+              <button class="context-item" onClick={() => { w().run(); props.onClose(); }}>
+                <span class="context-item-icon"><IconDoc size={14} /></span> {w().label}
+              </button>
+            )}
+          </Show>
           <button class="context-item" onClick={() => { props.onPreview(f().obj); props.onClose(); }}>
             <span class="context-item-icon"><IconEye size={14} /></span> {t("browse.ctx.preview")}
           </button>

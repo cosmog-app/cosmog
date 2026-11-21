@@ -1,20 +1,22 @@
-import { createResource, createSignal, Show } from "solid-js";
+import { createSignal, onMount, Show } from "solid-js";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import type { InstalledPlugin } from "../types";
-import { pluginDevLoad, pluginList, pluginRemove, pluginSetEnabled } from "../api/plugins";
+import { pluginDevLoad, pluginRemove, pluginSetEnabled } from "../api/plugins";
+import { pluginsInstalled, refreshPlugins } from "../state/plugins";
 import { IconPlugin } from "../utils/icons";
 import { toast } from "../state/toast";
 import { confirmDialog } from "../state/confirm";
 import { t } from "../i18n";
 import { PluginList } from "./plugins/PluginList";
 import { PluginHarness } from "./plugins/PluginHarness";
-import { DocumentShell } from "../plugins/DocumentShell";
 
 export default function Plugins() {
-  const [plugins, { refetch }] = createResource(pluginList, { initialValue: [] });
-  const [busy, setBusy] = createSignal(false);
+  const plugins = pluginsInstalled;
+  const refetch = refreshPlugins;
+  // Dev builds: the plugin whose protocol test page is showing.
   const [openId, setOpenId] = createSignal<string | null>(null);
-  const [testing, setTesting] = createSignal(false);
+  const [busy, setBusy] = createSignal(false);
+  onMount(() => void refreshPlugins());
   const opened = () => plugins().find((p) => p.id === openId() && p.enabled && p.compatible) ?? null;
 
   const act = async (fn: () => Promise<unknown>) => {
@@ -76,18 +78,13 @@ export default function Plugins() {
                 if (!enabled && openId() === p.id) setOpenId(null);
                 await pluginSetEnabled(p.id, enabled);
               })}
-              onOpen={(p) => { setTesting(false); setOpenId(p.id); }}
-              onTest={(p) => { setTesting(true); setOpenId(p.id); }}
+              onTest={(p) => setOpenId(p.id)}
               onRemove={remove}
             />
           </div>
         </div>
       </>}>
-        {(p) => (
-          <Show when={testing()} fallback={<DocumentShell plugin={p()} onBack={() => setOpenId(null)} />}>
-            <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />
-          </Show>
-        )}
+        {(p) => <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />}
       </Show>
     </div>
   );

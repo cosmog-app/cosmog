@@ -1,30 +1,21 @@
-//! Document-editor plugin commands (Phase 2): workspaces, document read/write, templates, drafts.
+//! Document-editor plugin commands (Phase 2): document read/write, templates, drafts.
 //! Called by the host shell only; plugins never reach IPC. Bodies travel as raw bytes, with
 //! write parameters in a base64 JSON `x-cosmog-meta` header.
 
 use base64::Engine;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use tauri::ipc::{InvokeBody, Request, Response};
 use tauri::State;
 
-use crate::db::plugin_workspaces::PluginWorkspace;
 use crate::error::{AppError, AppResult};
 use crate::plugins::docs::{self, DocMeta, DraftMeta};
 use crate::plugins::{InstalledPlugin, PluginRegistry};
 use crate::state::AppState;
-use crate::store::{ListOptions, PutCond};
+use crate::store::PutCond;
 use crate::validate;
-
-/// Listing stops here; a workspace with more documents than this is not a use case.
-const MAX_LISTED_DOCS: usize = 5_000;
 
 fn plugin(registry: &PluginRegistry, id: &str) -> AppResult<InstalledPlugin> {
     registry.get(id).ok_or_else(|| AppError::NotFound(format!("plugin {id}")))
-}
-
-fn normalize_prefix(p: &str) -> String {
-    let p = p.trim().trim_start_matches('/');
-    if p.is_empty() || p.ends_with('/') { p.to_owned() } else { format!("{p}/") }
 }
 
 fn raw_body(req: &Request<'_>) -> AppResult<Vec<u8>> {
@@ -43,108 +34,6 @@ fn header_meta<T: for<'de> Deserialize<'de>>(req: &Request<'_>) -> AppResult<T> 
         .decode(v.as_bytes())
         .map_err(|e| AppError::InvalidInput(format!("x-cosmog-meta: {e}")))?;
     serde_json::from_slice(&json).map_err(|e| AppError::InvalidInput(format!("x-cosmog-meta: {e}")))
-}
-
-// ── workspaces ──────────────────────────────────────────────────────────────
-
-#[tracing::instrument(skip_all, err)]
-#[tauri::command]
-pub async fn plugin_workspace_list(state: State<'_, AppState>, plugin_id: String) -> AppResult<Vec<PluginWorkspace>> {
-    state.db.plugin_workspace_list(&plugin_id).await
-}
-
-#[tracing::instrument(skip_all, err)]
-#[tauri::command]
-pub async fn plugin_workspace_add(
-    state: State<'_, AppState>,
-    registry: State<'_, PluginRegistry>,
-    plugin_id: String,
-    label: String,
-    account_id: String,
-    bucket: String,
-    prefix: String,
-) -> AppResult<PluginWorkspace> {
-    plugin(&registry, &plugin_id)?;
-    let label = validate::require_non_empty("label", &label)?;
-    let account_id = validate::require_non_empty("account_id", &account_id)?;
-    let bucket = validate::require_non_empty("bucket", &bucket)?;
-    // Fails early on a bucket the account can't list instead of on first save.
-    let store = state.store_for(&account_id).await?;
-    let prefix = normalize_prefix(&prefix);
-    store
-        .list_objects(&bucket, ListOptions { prefix: Some(prefix.clone()), max_keys: Some(1), ..Default::default() })
-        .await?;
-    state.db.plugin_workspace_add(&plugin_id, &label, &account_id, &bucket, &prefix).await
-}
-
-#[tracing::instrument(skip_all, err)]
-#[tauri::command]
-pub async fn plugin_workspace_remove(state: State<'_, AppState>, id: String) -> AppResult<()> {
-    if !state.db.plugin_workspace_remove(&id).await? {
-        return Err(AppError::NotFound(format!("workspace {id}")));
-    }
-    Ok(())
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct DocEntry {
-    pub key: String,
-    pub size: i64,
-    pub last_modified: Option<i64>,
-    pub etag: Option<String>,
-}
-
-/// Every object under the workspace prefix whose name ends in one of the plugin's file types.
-#[tracing::instrument(skip_all, err)]
-#[tauri::command]
-pub async fn plugin_doc_list(
-    state: State<'_, AppState>,
-    registry: State<'_, PluginRegistry>,
-    workspace_id: String,
-) -> AppResult<Vec<DocEntry>> {
-    let ws = state
-        .db
-        .plugin_workspace_get(&workspace_id)
-        .await?
-        .ok_or_else(|| AppError::NotFound(format!("workspace {workspace_id}")))?;
-    let exts: Vec<String> = plugin(&registry, &ws.plugin_id)?
-        .manifest
-        .file_types
-        .iter()
-        .map(|f| f.ext.to_lowercase())
-        .collect();
-    let store = state.store_for(&ws.account_id).await?;
-    let mut out = Vec::new();
-    let mut continuation = None;
-    loop {
-        let page = store
-            .list_objects(
-                &ws.bucket,
-                ListOptions {
-                    prefix: (!ws.prefix.is_empty()).then(|| ws.prefix.clone()),
-                    delimiter: None,
-                    continuation: continuation.take(),
-                    max_keys: Some(1000),
-                },
-            )
-            .await?;
-        for o in page.objects {
-            let lower = o.key.to_lowercase();
-            if exts.iter().any(|e| lower.ends_with(e)) {
-                out.push(DocEntry { key: o.key, size: o.size, last_modified: o.last_modified, etag: o.etag });
-                if out.len() >= MAX_LISTED_DOCS {
-                    return Ok(out);
-                }
-            }
-        }
-        match (page.is_truncated, page.continuation) {
-            (true, Some(c)) => continuation = Some(c),
-            _ => break,
-        }
-    }
-    out.sort_by(|a, b| b.last_modified.cmp(&a.last_modified).then_with(|| a.key.cmp(&b.key)));
-    Ok(out)
 }
 
 // ── documents ───────────────────────────────────────────────────────────────
@@ -289,15 +178,3 @@ pub async fn plugin_draft_clear(
         .map_err(|e| AppError::Internal(e.to_string()))?
 }
 
-#[cfg(test)]
-mod tests {
-    use super::normalize_prefix;
-
-    #[test]
-    fn prefix_is_relative_and_slash_terminated() {
-        assert_eq!(normalize_prefix(""), "");
-        assert_eq!(normalize_prefix("  "), "");
-        assert_eq!(normalize_prefix("/drawings"), "drawings/");
-        assert_eq!(normalize_prefix("a/b/"), "a/b/");
-    }
-}
