@@ -205,7 +205,9 @@ Commands (`commands/plugins.rs`, all `#[tracing::instrument(skip_all, err)]`):
 Store change for conflicts (built 2026-11-20): a new `ObjectStore::put_object_bytes_if(.., PutCond)`
 returns the new etag. `PutCond { if_match, if_none_match }`. `412 Precondition Failed` maps to the
 existing `AppError::Conflict`. A HEAD + etag compare runs right before the put for providers that ignore
-`If-Match`; stores without a native impl get that check as the trait default.
+`If-Match`; stores without a native impl get that check as the trait default. Providers that refuse the
+conditional headers outright (B2 answers `NotImplemented`) get one plain retry, and that store sends
+plain puts from then on, relying on the HEAD check alone (a narrow race remains there).
 
 Wire format (built 2026-11-20, `commands/plugin_docs.rs`, `src/api/plugins.ts`):
 

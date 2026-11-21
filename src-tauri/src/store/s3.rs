@@ -46,9 +46,43 @@ pub struct S3Store {
     client: Client,
     /// Provider rejected If-None-Match: emulate it with HEAD from now on.
     pub(super) inm_unsupported: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// Provider rejected If-Match / If-None-Match on PutObject (B2): HEAD check only from now on.
+    cond_put_unsupported: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl S3Store {
+    async fn put_bytes_once(
+        &self,
+        bucket: &str,
+        key: &str,
+        content_type: &str,
+        data: Vec<u8>,
+        user_metadata: &std::collections::HashMap<String, String>,
+        cond: Option<&crate::store::PutCond>,
+    ) -> AppResult<Option<String>> {
+        let mut req = self.client
+            .put_object()
+            .bucket(bucket)
+            .key(key)
+            .content_type(content_type)
+            .content_length(data.len() as i64);
+        if let Some(c) = cond {
+            req = req.set_if_match(c.if_match.clone());
+            if c.if_none_match {
+                req = req.if_none_match("*");
+            }
+        }
+        for (k, v) in user_metadata {
+            req = req.metadata(k, v);
+        }
+        let resp = req
+            .body(ByteStream::from(data))
+            .send()
+            .await
+            .map_err(|e| classify_aws("put_object_bytes", e))?;
+        Ok(resp.e_tag().map(|s| s.to_string()))
+    }
+
     async fn put_marker(&self, bucket: &str, prefix: &str, if_none_match: bool) -> AppResult<()> {
         let key = format!("{}/", prefix.trim_end_matches('/'));
         self.client
@@ -96,7 +130,7 @@ impl S3Store {
         }
 
         let client = Client::from_conf(builder.build());
-        Ok(S3Store { client, inm_unsupported: Default::default() })
+        Ok(S3Store { client, inm_unsupported: Default::default(), cond_put_unsupported: Default::default() })
     }
 }
 
@@ -490,28 +524,20 @@ impl ObjectStore for S3Store {
         user_metadata: std::collections::HashMap<String, String>,
         cond: crate::store::PutCond,
     ) -> AppResult<Option<String>> {
+        use std::sync::atomic::Ordering::Relaxed;
         // Providers that ignore If-Match still get caught here.
         crate::store::check_cond_with_head(self, bucket, key, &cond).await?;
-        let len = data.len() as i64;
-        let mut req = self.client
-            .put_object()
-            .bucket(bucket)
-            .key(key)
-            .content_type(content_type)
-            .content_length(len)
-            .set_if_match(cond.if_match.clone());
-        if cond.if_none_match {
-            req = req.if_none_match("*");
+        let native = (cond.if_match.is_some() || cond.if_none_match) && !self.cond_put_unsupported.load(Relaxed);
+        // Kept for one plain retry if the provider refuses the conditional headers.
+        let retry = native.then(|| data.clone());
+        match self.put_bytes_once(bucket, key, content_type, data, &user_metadata, native.then_some(&cond)).await {
+            Err(AppError::Unsupported(_)) if native => {
+                self.cond_put_unsupported.store(true, Relaxed);
+                let data = retry.unwrap_or_default();
+                self.put_bytes_once(bucket, key, content_type, data, &user_metadata, None).await
+            }
+            r => r,
         }
-        for (k, v) in user_metadata {
-            req = req.metadata(k, v);
-        }
-        let resp = req
-            .body(ByteStream::from(data))
-            .send()
-            .await
-            .map_err(|e| classify_aws("put_object_bytes", e))?;
-        Ok(resp.e_tag().map(|s| s.to_string()))
     }
 
     async fn create_folder(&self, bucket: &str, prefix: &str) -> AppResult<()> {
