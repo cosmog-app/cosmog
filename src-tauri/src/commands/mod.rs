@@ -14,6 +14,8 @@ pub mod mcp;
 pub mod night_watcher;
 pub mod objects;
 pub mod plugin_docs;
+#[cfg(not(target_os = "android"))]
+pub mod plugin_store;
 pub mod plugins;
 pub mod portable;
 pub mod request_logs;

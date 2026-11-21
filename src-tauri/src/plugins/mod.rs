@@ -6,6 +6,8 @@ pub mod dev;
 pub mod docs;
 pub mod manifest;
 pub mod scheme;
+#[cfg(not(target_os = "android"))]
+pub mod store;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -28,6 +30,22 @@ pub struct InstalledPlugin {
     pub manifest: Manifest,
     /// False when the package is for another platform or its files are gone; never served.
     pub compatible: bool,
+    /// The manifest icon as a data URI, so the host page can show it without the plugin scheme.
+    pub icon: Option<String>,
+}
+
+const MAX_ICON_BYTES: u64 = 128 * 1024;
+
+fn icon_data_uri(dir: &Path, rel: &str) -> Option<String> {
+    use base64::Engine;
+    let mime = if rel.ends_with(".svg") { "image/svg+xml" } else { "image/png" };
+    let path = dir.join(rel);
+    let meta = std::fs::symlink_metadata(&path).ok()?;
+    if !meta.is_file() || meta.len() > MAX_ICON_BYTES {
+        return None;
+    }
+    let b64 = base64::engine::general_purpose::STANDARD.encode(std::fs::read(path).ok()?);
+    Some(format!("data:{mime};base64,{b64}"))
 }
 
 /// Cheap to clone. Managed by Tauri on its own so the scheme handler can serve before AppState exists.
@@ -85,7 +103,9 @@ impl PluginRegistry {
 
     fn build(&self, row: &PluginRow) -> AppResult<InstalledPlugin> {
         let manifest = Manifest::parse(&row.manifest_json)?;
-        let on_disk = plugin_dir(&self.root, &row.id, &row.version).join(&manifest.entry).is_file();
+        let dir = plugin_dir(&self.root, &row.id, &row.version);
+        let on_disk = dir.join(&manifest.entry).is_file();
+        let icon = manifest.icon.as_deref().and_then(|rel| icon_data_uri(&dir, rel));
         let platform_ok = manifest.supports(Platform::current());
         if !on_disk {
             tracing::warn!("plugin {} {}: files missing, not served", row.id, row.version);
@@ -101,6 +121,7 @@ impl PluginRegistry {
             installed_at: row.installed_at,
             manifest,
             compatible: on_disk && platform_ok,
+            icon,
         })
     }
 }

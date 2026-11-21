@@ -25,7 +25,7 @@ bucket, from the bucket browser, the way images open in the image editor.
 | Updates | Badge + user clicks update. Permission increases shown first. Previous version kept for rollback |
 | Registry | Separate GitHub repo `cosmog-plugins`: `index.json` on main, zips as release assets |
 | Sources | Plugin SDK and plugin sources live in `cosmog-plugins`, with CI that builds, signs and releases |
-| New Rust deps | `reqwest` (rustls), `zip`, `ed25519-dalek`, added in Phase 3 |
+| New Rust deps | Phase 3 adds only `zip`. Download, SHA-256 and ed25519 use hyper + rustls + aws-lc-rs, already built for the S3 client |
 
 ## Architecture
 
@@ -89,7 +89,15 @@ same pattern as `mcp_fs_root`.
   "fileTypes": [
     { "ext": ".excalidraw", "mime": "application/vnd.excalidraw+json", "label": "Drawing", "template": "templates/empty.excalidraw" }
   ],
-  "permissions": []
+  "permissions": [],
+  "summary": "Sketch hand-drawn diagrams and whiteboards.",
+  "description": "Paragraphs split by blank lines.",
+  "icon": "icon.svg",
+  "author": "Cosmog",
+  "license": "MIT",
+  "homepage": "https://...",
+  "repository": "https://github.com/...",
+  "upstream": { "name": "Excalidraw", "url": "https://github.com/excalidraw/excalidraw" }
 }
 ```
 
@@ -101,14 +109,19 @@ Validation (Rust, `plugins/manifest.rs`):
 - `platforms`: required, non-empty, values `desktop` | `mobile`. Must include the current platform to
   list, install or load.
 - `entry` and `template` paths: relative, no `..`, must exist in the package.
+- Store listing fields are optional and display only: `summary` <= 140 chars, `description` <= 4000,
+  `author` <= 80, `license` <= 40, `icon` a `.png`/`.svg` in the package (shown as a `data:` URI,
+  max 128 KB), `homepage`, `repository` and `upstream.url` https only.
 - `permissions`: known values only. `document-editor` needs none. Reserved: `storage:workspace`,
   `network:<host>`.
 
 ## Packaging and signing
 
-- Package: zip with the manifest at the root. Max 50 MB compressed, 200 MB extracted, 5000 entries.
-- Extract with path checks: reject absolute paths, `..`, symlinks and duplicate names.
-- Signed statement, so a valid signature cannot be reused for another plugin or an older version:
+- Package: zip with the manifest at the root. Max 64 MB compressed, 200 MB extracted, 5000 entries.
+- Extract with path checks (`store/install.rs`): every entry name passes `safe_rel_path` (no absolute,
+  `..`, backslash or empty segments), symlinks and special files are refused, duplicates fail
+  (`create_new`), and the extracted byte limit counts bytes actually inflated, not header sizes.
+- Signed statement, so a valid signature cannot be reused for another plugin or another version:
 
   ```text
   cosmog-plugin-v1
@@ -117,18 +130,24 @@ Validation (Rust, `plugins/manifest.rs`):
   <sha256 of zip, hex>
   ```
 
-- Ed25519 over that statement. Each signature names a `keyId`.
-- App holds `TRUSTED_KEYS: &[(key_id, pubkey)]` and `REVOKED_KEYS: &[key_id]`. Key rotation: add the new
-  key in an app release, start signing with it, drop the old one a few releases later. Revoking needs
-  an app release.
-- Private key: GitHub Actions secret in `cosmog-plugins` only.
-- Install checks: signature valid for a trusted, non-revoked key; sha256 matches; manifest `id` and
-  `version` inside the zip match the statement. A version lower than the installed one is refused
-  unless the user rolls back to the locally kept previous version.
+- Ed25519 over that statement. Each signature names a `keyId`. Verified with `aws-lc-rs`.
+- App holds `TRUSTED_KEYS` (`store/keys.rs`). Rotation: add the new key in an app release, start
+  signing with it, drop the old one a few releases later. Removing a key is the revocation, and needs an
+  app release.
+- Private key: `COSMOG_SIGNING_KEY` Actions secret in `cosmog-plugins`, plus the owner's offline copy.
+  Never in a repo. Created with `scripts/keygen.mjs`. Current key: `cosmog-2026-1`.
+- Install checks, in order: size equals the catalog's, sha256 equals the catalog's, signature by a
+  trusted key over the statement built from the catalog's id + version + the computed hash, manifest
+  inside the zip validates and has that same id and version, platform matches. Nothing is unpacked
+  before the signature passes.
+- No downgrades: a store install is only replaced by the same or a newer version (old releases stay
+  validly signed forever). A dev copy is always replaced. The outgoing store version is kept on disk
+  (`prev_version`) for a later rollback; older ones are deleted. Rollback UI is not built yet.
 
 ## Registry
 
-`https://raw.githubusercontent.com/<owner>/cosmog-plugins/main/index.json`:
+`https://raw.githubusercontent.com/echosonusharma/cosmog-plugins/main/index.json`, written by the
+release workflow (`scripts/update-index.mjs`). One entry per plugin, latest version only:
 
 ```json
 {
@@ -137,27 +156,39 @@ Validation (Rust, `plugins/manifest.rs`):
     {
       "id": "excalidraw",
       "name": "Excalidraw",
-      "description": "Whiteboard drawings stored in your buckets",
-      "icon": "https://.../excalidraw.svg",
+      "version": "0.1.0",
+      "summary": "Sketch hand-drawn diagrams and whiteboards.",
+      "description": "Paragraphs split by blank lines.",
+      "icon": "data:image/svg+xml;base64,...",
+      "author": "Cosmog",
+      "license": "MIT",
+      "repository": "https://github.com/...",
+      "upstream": { "name": "Excalidraw", "url": "https://github.com/excalidraw/excalidraw" },
       "platforms": ["desktop"],
-      "latest": {
-        "version": "0.1.0",
-        "apiVersion": 1,
-        "minAppVersion": "1.2.0",
-        "url": "https://github.com/<owner>/cosmog-plugins/releases/download/excalidraw-v0.1.0/excalidraw-0.1.0.zip",
+      "minAppVersion": "1.1.42",
+      "fileTypes": [{ "ext": ".excalidraw", "label": "Drawing" }],
+      "releasedAt": "2026-11-21T12:00:00.000Z",
+      "download": {
+        "url": "https://github.com/echosonusharma/cosmog-plugins/releases/download/excalidraw-v0.1.0/excalidraw-0.1.0.zip",
+        "size": 15729837,
         "sha256": "<hex>",
-        "keyId": "cosmog-2026",
-        "signature": "<base64>",
-        "permissions": []
+        "keyId": "cosmog-2026-1",
+        "signature": "<base64>"
       }
     }
   ]
 }
 ```
 
-The index is unsigned; every entry is. Worst case, a tampered index hides updates. Fetched by Rust
-(`reqwest`), so the app CSP does not change for downloads. Icons go through the same path and are
-cached locally.
+- The index itself is unsigned; it is display data plus a pointer. Worst case, a tampered index hides
+  a plugin or an update; it cannot install anything unsigned or older.
+- Unknown fields are ignored (newer catalogs keep working). A `schema` other than 1 is an error that
+  asks for a newer app. Entries with a bad id, version or non-https download are skipped; icons that
+  are not a PNG/SVG `data:` URI and links that are not https are dropped.
+- Icons are inlined as `data:` URIs, so the list needs no extra requests and the app CSP is unchanged.
+- Fetched by Rust only when the Plugins view opens (`plugin_store_list`). `plugin_install(id)` re-fetches
+  the catalog itself, so the frontend cannot point an install at another package. Progress events:
+  `plugin-install-progress { id, done, total }`, at most one per percent.
 
 ## Host to plugin protocol (v1)
 
@@ -190,8 +221,10 @@ keeps its own copy of the protocol types in `src/types/index.ts`; `apiVersion` k
 | `dev.rs` | Load unpacked from a folder (staging dir, no symlinks, size caps), remove |
 | `manifest.rs` | Parse + validate manifest |
 | `scheme.rs` | `cosmog-plugin` async URI scheme: path resolution, traversal guard, MIME, CSP header |
-| `install.rs` | Phase 3: download, verify, extract, swap, rollback |
-| `keys.rs` | Phase 3: `TRUSTED_KEYS`, `REVOKED_KEYS`, statement verify |
+| `store/http.rs` | Phase 3: HTTPS GET on hyper + rustls, redirects (GitHub assets), size cap, idle timeout |
+| `store/index.rs` | Phase 3: catalog URL, parse + sanitize |
+| `store/keys.rs` | Phase 3: `TRUSTED_KEYS`, statement, sha256, ed25519 verify |
+| `store/install.rs` | Phase 3: check package, safe unzip, manifest match, swap, keep previous version |
 | `docs.rs` | Phase 2: draft store (age-encrypted for encrypted buckets) |
 
 Commands (`commands/plugins.rs`, all `#[tracing::instrument(skip_all, err)]`):
@@ -200,7 +233,7 @@ Commands (`commands/plugins.rs`, all `#[tracing::instrument(skip_all, err)]`):
 - Phase 2: `plugin_doc_read(account, bucket, key)` -> raw bytes + etag (`tauri::ipc::Response`, no JSON number arrays),
   `plugin_doc_write(account, bucket, key, mime, if_match)` with a raw request body -> new etag,
   `plugin_template`, `plugin_draft_get/put/clear`.
-- Phase 3: `plugin_registry_fetch`, `plugin_install`, `plugin_update`, `plugin_rollback`.
+- Phase 3 (`commands/plugin_store.rs`, desktop): `plugin_store_list`, `plugin_install(id)` (install and update). Rollback later.
 
 Store change for conflicts (built 2026-11-20): a new `ObjectStore::put_object_bytes_if(.., PutCond)`
 returns the new etag. `PutCond { if_match, if_none_match }`. `412 Precondition Failed` maps to the
@@ -262,13 +295,17 @@ Files on disk: `<app_data>/plugins/<id>/<version>/`, drafts in `<app_data>/plugi
 ## `cosmog-plugins` repo
 
 ```shell
-index.json
-sdk/                    @cosmog/plugin-sdk (protocol types + client)
-plugins/excalidraw/     source, cosmog-plugin.json, templates/
-plugins/hello/          test plugin (escape checks + protocol round trip)
-scripts/sign.ts         builds statement, signs with key from env
-.github/workflows/      on tag <id>-v<ver>: build -> zip -> sha256 -> sign -> release -> PR to index.json
+index.json                      store catalog, written by CI
+sdk/                            @cosmog/plugin-sdk (protocol types + client)
+plugins/excalidraw/             source; public/ holds cosmog-plugin.json, icon.svg, templates/
+scripts/keygen.mjs              one-off: new signing key (private PEM to a file, public half printed)
+scripts/pack.mjs                dist -> zip -> sha256 -> sign -> release/<id>.entry.json
+scripts/update-index.mjs        puts an entry into index.json
+.github/workflows/release.yml   on tag <id>-v<ver> on main: build, pack, sign, GitHub release, commit index.json
 ```
+
+Publishing: bump `version` in the plugin's `public/cosmog-plugin.json`, commit to main, push tag
+`<id>-v<version>`. The workflow refuses a tag that does not match the manifest or is not on main.
 
 ## Phases
 

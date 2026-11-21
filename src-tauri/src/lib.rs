@@ -540,6 +540,10 @@ pub fn run() {
             commands::plugin_docs::plugin_draft_get,
             commands::plugin_docs::plugin_draft_put,
             commands::plugin_docs::plugin_draft_clear,
+            #[cfg(not(target_os = "android"))]
+            commands::plugin_store::plugin_store_list,
+            #[cfg(not(target_os = "android"))]
+            commands::plugin_store::plugin_install,
             #[cfg(debug_assertions)]
             commands::plugins::plugin_dev_load,
 

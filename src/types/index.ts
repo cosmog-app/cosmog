@@ -408,6 +408,37 @@ export interface PluginManifest {
   minAppVersion?: string | null;
   fileTypes: PluginFileType[];
   permissions: string[];
+  summary?: string | null;
+  description?: string | null;
+  icon?: string | null;
+  author?: string | null;
+  license?: string | null;
+  homepage?: string | null;
+  repository?: string | null;
+  upstream?: PluginLink | null;
+}
+
+export interface PluginLink { name: string; url: string }
+
+/** One plugin in the store catalog (cosmog-plugins index.json). Display data only. */
+export interface StoreEntry {
+  id: string;
+  name: string;
+  version: string;
+  summary?: string | null;
+  description?: string | null;
+  /** data: URI */
+  icon?: string | null;
+  author?: string | null;
+  license?: string | null;
+  homepage?: string | null;
+  repository?: string | null;
+  upstream?: PluginLink | null;
+  platforms: PluginPlatform[];
+  minAppVersion?: string | null;
+  fileTypes: { ext: string; label: string }[];
+  releasedAt?: string | null;
+  download: { url: string; size: number; sha256: string; keyId: string; signature: string };
 }
 
 export interface InstalledPlugin {
@@ -419,6 +450,8 @@ export interface InstalledPlugin {
   manifest: PluginManifest;
   /** False when built for another platform or its files are missing; never loaded. */
   compatible: boolean;
+  /** Manifest icon as a data: URI. */
+  icon?: string | null;
 }
 
 /** Host <-> plugin protocol v1. Envelope field `cosmog` is the protocol version. */

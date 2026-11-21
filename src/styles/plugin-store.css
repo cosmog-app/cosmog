@@ -1,0 +1,125 @@
+/* ── plugin store: cards, detail page ───────────────────────────────────── */
+
+.pstore-icon {
+  flex: none;
+  display: grid; place-items: center;
+  overflow: hidden;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.pstore-icon img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pstore-icon-sm { width: 32px; height: 32px; border-radius: 8px; }
+.pstore-icon-md { width: 44px; height: 44px; border-radius: 11px; }
+.pstore-icon-lg { width: 84px; height: 84px; border-radius: 20px; }
+
+.pstore-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.pstore-card {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+.pstore-card:hover { border-color: var(--border-2); background: var(--bg-elev-2); }
+.pstore-card:focus-visible { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+
+.pstore-card-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pstore-card-title { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pstore-card-name { color: var(--text); font-weight: 600; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pstore-card-meta { color: var(--text-muted); font-size: 12px; }
+.pstore-card-summary {
+  margin: 0;
+  color: var(--text-soft); font-size: 12.5px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  min-height: 3em;
+}
+.pstore-card-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: auto; }
+.pstore-card-types { color: var(--text-muted); font: 11px/1.4 "IBM Plex Mono", monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* install button states */
+.pstore-btn { width: auto; flex: none; padding: 6px 14px; font-size: 12.5px; }
+.pstore-installed, .pstore-unavailable {
+  flex: none;
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px;
+}
+.pstore-installed { color: var(--ok); }
+.pstore-unavailable { color: var(--text-muted); }
+.pstore-busy { flex: none; display: inline-flex; flex-direction: column; align-items: flex-end; gap: 4px; min-width: 110px; }
+.pstore-busy-label { color: var(--text-soft); font-size: 11.5px; }
+.pstore-progress {
+  appearance: none; -webkit-appearance: none;
+  width: 110px; height: 4px;
+  border: none; border-radius: 2px;
+  background: var(--bg-elev-2);
+  overflow: hidden;
+}
+.pstore-progress::-webkit-progress-bar { background: var(--bg-elev-2); }
+.pstore-progress::-webkit-progress-value { background: var(--accent); transition: width 0.15s; }
+.pstore-progress::-moz-progress-bar { background: var(--accent); }
+
+/* detail page */
+.pstore-detail-bar { gap: 8px; }
+
+.pstore-hero {
+  display: flex; align-items: center; gap: 18px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(120deg, var(--accent-soft), transparent 55%), var(--surface);
+}
+.pstore-hero-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pstore-hero-name { margin: 0; color: var(--text); font-size: 20px; font-weight: 600; }
+.pstore-hero-summary { margin: 0; color: var(--text-soft); font-size: 13px; line-height: 1.5; }
+.pstore-hero-meta { color: var(--text-muted); font-size: 12px; }
+.pstore-hero-action { flex: none; }
+.pstore-hero-action .pstore-btn { padding: 8px 18px; font-size: 13px; }
+
+.pstore-detail {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 28px;
+  align-items: start;
+}
+.pstore-about { display: flex; flex-direction: column; gap: 10px; }
+.pstore-para { margin: 0; color: var(--text-soft); font-size: 13px; line-height: 1.65; }
+.pstore-howto {
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius);
+  color: var(--text-muted); font-size: 12.5px;
+}
+
+.pstore-side { display: flex; flex-direction: column; gap: 10px; }
+.pstore-facts {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.pstore-facts dt { color: var(--text-muted); }
+.pstore-facts dd { margin: 0; color: var(--text); text-align: right; overflow-wrap: anywhere; }
+
+.pstore-links { display: flex; flex-direction: column; gap: 4px; }
+.pstore-link {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  border: 0; border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--accent);
+  font: inherit; font-size: 12.5px; text-align: left;
+  cursor: pointer;
+}
+.pstore-link:hover { background: var(--accent-soft); }
+
+@media (max-width: 900px) {
+  .pstore-detail { grid-template-columns: 1fr; }
+}
