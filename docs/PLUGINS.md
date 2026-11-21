@@ -146,7 +146,7 @@ Validation (Rust, `plugins/manifest.rs`):
 
 ## Registry
 
-`https://raw.githubusercontent.com/echosonusharma/cosmog-plugins/main/index.json`, written by the
+`https://raw.githubusercontent.com/cosmog-app/cosmog-plugins/main/index.json`, written by the
 release workflow (`scripts/update-index.mjs`). One entry per plugin, latest version only:
 
 ```json
@@ -169,7 +169,7 @@ release workflow (`scripts/update-index.mjs`). One entry per plugin, latest vers
       "fileTypes": [{ "ext": ".excalidraw", "label": "Drawing" }],
       "releasedAt": "2026-11-21T12:00:00.000Z",
       "download": {
-        "url": "https://github.com/echosonusharma/cosmog-plugins/releases/download/excalidraw-v0.1.0/excalidraw-0.1.0.zip",
+        "url": "https://github.com/cosmog-app/cosmog-plugins/releases/download/excalidraw-v0.1.0/excalidraw-0.1.0.zip",
         "size": 15729837,
         "sha256": "<hex>",
         "keyId": "cosmog-2026-1",

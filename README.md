@@ -6,13 +6,13 @@
   Your S3 storage, everywhere.  
   A fast, native app for managing files across any S3-compatible provider on desktop and android.
 
-  [Download latest release →](https://github.com/echosonusharma/cosmog/releases/latest) · [Join the Discord →](https://discord.gg/kvVQxJJwyx)
+  [Download latest release →](https://github.com/cosmog-app/cosmog/releases/latest) · [Join the Discord →](https://discord.gg/kvVQxJJwyx)
 
 </div>
 
 > [!NOTE]
 > **Cosmog is in active development.** Features change often and you may hit bugs. For important buckets, turn on versioning and keep your encryption keys somewhere safe.
-> Found a problem? [Open an issue](https://github.com/echosonusharma/cosmog/issues) and we'll fix it.
+> Found a problem? [Open an issue](https://github.com/cosmog-app/cosmog/issues) and we'll fix it.
 
 <div align="center">
 
@@ -66,19 +66,19 @@ Cosmog follows your device language and falls back to English when it has no tra
 
 🇬🇧 English · 🇨🇳 简体中文 · 🇯🇵 日本語 · 🇪🇸 Español · 🇷🇺 Русский · 🇰🇷 한국어 · 🇧🇷 Português (Brasil)
 
-The translations are new. If something reads wrong, [open an issue](https://github.com/echosonusharma/cosmog/issues) or tell us on [Discord](https://discord.gg/kvVQxJJwyx). To add a language, see [DOCS.md](docs/DOCS.md#i18n).
+The translations are new. If something reads wrong, [open an issue](https://github.com/cosmog-app/cosmog/issues) or tell us on [Discord](https://discord.gg/kvVQxJJwyx). To add a language, see [DOCS.md](docs/DOCS.md#i18n).
 
 ## Download
 
 | Platform | Link | File to download |
 | --- | --- | --- |
-| macOS (Apple Silicon) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog_*_aarch64.dmg` |
-| macOS (Intel) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog_*_x64.dmg` |
-| Windows | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog_*_x64-setup.exe` or `.msi` |
-| Linux (AppImage) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog_*_amd64.AppImage` |
-| Linux (deb) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog_*_amd64.deb` |
-| Linux (rpm) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog-*-1.x86_64.rpm` |
-| Android (requires 7.0+) | [Download](https://github.com/echosonusharma/cosmog/releases/latest) | `Cosmog-*-android-arm64.apk` (most phones) |
+| macOS (Apple Silicon) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog_*_aarch64.dmg` |
+| macOS (Intel) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog_*_x64.dmg` |
+| Windows | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog_*_x64-setup.exe` or `.msi` |
+| Linux (AppImage) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog_*_amd64.AppImage` |
+| Linux (deb) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog_*_amd64.deb` |
+| Linux (rpm) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog-*-1.x86_64.rpm` |
+| Android (requires 7.0+) | [Download](https://github.com/cosmog-app/cosmog/releases/latest) | `Cosmog-*-android-arm64.apk` (most phones) |
 
 Credentials are stored in the native OS secret store on each platform and never written to disk.
 

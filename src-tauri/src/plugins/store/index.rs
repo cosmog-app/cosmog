@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{AppError, AppResult};
 use crate::plugins::manifest::{is_https_url, parse_semver, valid_id, Link, Platform};
 
-pub const INDEX_URL: &str = "https://raw.githubusercontent.com/echosonusharma/cosmog-plugins/main/index.json";
+pub const INDEX_URL: &str = "https://raw.githubusercontent.com/cosmog-app/cosmog-plugins/main/index.json";
 const MAX_INDEX_BYTES: u64 = 4 * 1024 * 1024;
 const SCHEMA: u32 = 1;
 

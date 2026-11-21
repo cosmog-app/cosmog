@@ -35,7 +35,7 @@
     "copyright": "Copyright © 2026 Sonu Sharma",
     "shortDescription": "S3-compatible object storage manager",
     "longDescription": "Cosmog is a desktop app for managing files across S3-compatible storage providers including AWS S3, Cloudflare R2, Backblaze B2, DigitalOcean Spaces, Wasabi, and MinIO.",
-    "homepage": "https://github.com/sonusharma/cosmog",
+    "homepage": "https://github.com/cosmog-app/cosmog",
     "category": "Utility",
     "icon": [
       "icons/32x32.png",
