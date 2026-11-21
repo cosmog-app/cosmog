@@ -12,6 +12,8 @@ import App from "./App";
 import BootScreen from "./routes/BootScreen";
 import Titlebar from "./routes/Titlebar";
 import { boot } from "./boot";
+import { isDesktopShell } from "./utils/platform";
+import { forwardPinch } from "./utils/pinch";
 import "./styles/index.css";
 
 if (import.meta.env.DEV) {
@@ -22,6 +24,9 @@ if (import.meta.env.DEV) {
     }
   });
 }
+
+// Only Linux emits it; elsewhere pinch already reaches the page as wheel/gesture events.
+if (isDesktopShell) forwardPinch();
 
 // Block native context menu everywhere (components show their own)
 document.addEventListener("contextmenu", (e) => e.preventDefault());
