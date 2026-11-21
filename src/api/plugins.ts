@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
-import type { InstalledPlugin, PluginDocEntry, PluginDocMeta, PluginDocRef, PluginDraftMeta, PluginWorkspace } from "../types";
+import type { InstalledPlugin, PluginDocMeta, PluginDocRef, PluginDraftMeta } from "../types";
 
 export const pluginList = (): Promise<InstalledPlugin[]> => invoke("plugin_list");
 
@@ -12,16 +12,6 @@ export const pluginRemove = (id: string): Promise<void> => invoke("plugin_remove
 export const pluginDevLoad = (path: string): Promise<InstalledPlugin> => invoke("plugin_dev_load", { path });
 
 // ── document plugins (phase 2) ──
-
-export const pluginWorkspaceList = (pluginId: string): Promise<PluginWorkspace[]> =>
-  invoke("plugin_workspace_list", { pluginId });
-
-export const pluginWorkspaceAdd = (w: { pluginId: string; label: string; accountId: string; bucket: string; prefix: string }): Promise<PluginWorkspace> =>
-  invoke("plugin_workspace_add", w);
-
-export const pluginWorkspaceRemove = (id: string): Promise<void> => invoke("plugin_workspace_remove", { id });
-
-export const pluginDocList = (workspaceId: string): Promise<PluginDocEntry[]> => invoke("plugin_doc_list", { workspaceId });
 
 /** Raw IPC body for write commands; parameters ride in a base64 JSON header (keys may be non-ASCII). */
 function metaHeader(meta: object): Record<string, string> {

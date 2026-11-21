@@ -70,7 +70,7 @@ function PreviewErrorCard(props: { err: unknown; storageClass?: string | null })
   );
 }
 
-export function PreviewPane(props: { obj: CachedObjectMeta; onClose: () => void; onDownload: () => void; onCopyLink: () => void; encrypted?: boolean; reloadToken?: number; onListChanged?: () => void; startEditing?: boolean; onEditStarted?: () => void; }) {
+export function PreviewPane(props: { obj: CachedObjectMeta; onClose: () => void; onDownload: () => void; onCopyLink: () => void; encrypted?: boolean; reloadToken?: number; onListChanged?: () => void; startEditing?: boolean; onEditStarted?: () => void; openWith?: { label: string; run: () => void } | null; }) {
   const ct = () => props.obj.content_type ?? "";
   const ext = () => extOf(props.obj.basename);
   const editorExt = () => editorExtOf(props.obj.basename) || extForMime(ct());
@@ -441,6 +441,10 @@ export function PreviewPane(props: { obj: CachedObjectMeta; onClose: () => void;
           </div>
 
           <MetaList obj={props.obj} />
+
+          <Show when={props.openWith}>
+            {(o) => <button class="btn-primary preview-open-with" onClick={() => o().run()}>{o().label}</button>}
+          </Show>
 
           <div class="btn-row">
             <button class="btn-secondary btn-half" onClick={props.onCopyLink}>{t("preview.copyLink")}</button>

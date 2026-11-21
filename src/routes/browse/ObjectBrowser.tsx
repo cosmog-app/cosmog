@@ -41,6 +41,7 @@ import { pickFolder } from "./folderUpload/pickFolder";
 import { resumeRepicked } from "../transfers/repickSource";
 import { sourceDisplayName } from "../../utils/sourceName";
 import { useDesktopDrop } from "./folderUpload/useDesktopDrop";
+import { openWithPlugin, pluginForKey } from "../../state/plugins";
 
 export function ObjectBrowser(props: {
   accountId: string;
@@ -452,6 +453,19 @@ export function ObjectBrowser(props: {
     }
   }
 
+  // Files a document plugin handles open in it, like images open in the image editor.
+  function openWith(obj: CachedObjectMeta) {
+    const p = pluginForKey(obj.key);
+    if (!p) return null;
+    return {
+      label: t("plugins.shell.openIn", { name: p.manifest.name }),
+      run: () => openWithPlugin(
+        { accountId: props.accountId, bucket: props.bucket, key: obj.key },
+        () => setRefresh((n) => n + 1),
+      ),
+    };
+  }
+
   async function handleCopyLink(obj: CachedObjectMeta) {
     try {
       // Backend refuses presign for encrypted objects unless the caller opts in
@@ -733,6 +747,7 @@ export function ObjectBrowser(props: {
             onListChanged={() => setRefresh((n) => n + 1)}
             startEditing={editNewKey() === previewTarget()?.key}
             onEditStarted={() => setEditNewKey(null)}
+            openWith={openWith(previewTarget()!)}
           />
         </ErrorBoundary>
       </Show>
@@ -759,6 +774,7 @@ export function ObjectBrowser(props: {
             onRename={(obj) => setRenameTarget(obj)}
             onVersionHistory={(obj) => setVersionTarget(obj)}
             onDelete={handleDelete}
+            openWith={openWith}
           />
         )}
       </Show>
@@ -804,6 +820,10 @@ export function ObjectBrowser(props: {
           bucket={props.bucket}
           prefix={showNewFile()!}
           onClose={() => setShowNewFile(null)}
+          onPluginCreated={(key) => {
+            setRefresh((n) => n + 1);
+            openWithPlugin({ accountId: props.accountId, bucket: props.bucket, key }, () => setRefresh((n) => n + 1));
+          }}
           onCreated={(key, mime) => {
             const base = key.split("/").pop() || key;
             setRefresh((n) => n + 1);

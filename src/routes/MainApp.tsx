@@ -45,7 +45,9 @@ import { sidebarCollapsed, setSidebarCollapsed } from "../state/sidebar";
 import { ActiveTransfersBar } from "./mainapp/ActiveTransfersBar";
 import { FolderResumeBanner } from "./mainapp/FolderResumeBanner";
 import { watchFolderJobNotifications } from "./mainapp/folderJobNotify";
-import { useFolderCloseGuard } from "./mainapp/folderCloseGuard";
+import { useCloseGuard } from "./mainapp/closeGuard";
+import { openDoc, refreshPlugins } from "../state/plugins";
+import { PluginEditor } from "../plugins/PluginEditor";
 import { startFolderJobsPoller, movingFolderJobs } from "../state/folderJobs";
 import { isMobile } from "../utils/breakpoint";
 import { Show } from "solid-js";
@@ -275,7 +277,9 @@ export default function MainApp() {
   // Folder jobs (desktop only): notifications hook in before the shared poller's first load.
   watchFolderJobNotifications();
   startFolderJobsPoller();
-  useFolderCloseGuard();
+  useCloseGuard();
+  // The browser needs to know which files a plugin opens before the Plugins view is visited.
+  void refreshPlugins();
   // A folder job counts as one active item.
   const sidebarCount = () => activeCount() + movingFolderJobs().length;
 
@@ -384,6 +388,9 @@ export default function MainApp() {
         <FolderResumeBanner />
         <ActiveTransfersBar />
       </main>
+      <Show when={openDoc()} keyed>
+        {(d) => <PluginEditor doc={d} />}
+      </Show>
     </div>
   );
 }

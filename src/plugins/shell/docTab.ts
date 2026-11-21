@@ -17,8 +17,6 @@ const DRAFT_EVERY_MS = 5_000;
 
 export type TabStatus = "loading" | "ready" | "error";
 
-export const refKey = (r: PluginDocRef) => `${r.accountId}\u0000${r.bucket}\u0000${r.key}`;
-
 /** "a/b/plan.excalidraw" -> "a/b/plan (conflict 2026-11-20 14-05).excalidraw" */
 export function conflictCopyKey(key: string, now = new Date()): string {
   const slash = key.lastIndexOf("/") + 1;
@@ -36,6 +34,11 @@ function fingerprint(b: ArrayBuffer): string {
   return `${u.byteLength}:${h}`;
 }
 
+async function digest(b: ArrayBuffer): Promise<string> {
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", b));
+  return Array.from(h, (x) => x.toString(16).padStart(2, "0")).join("");
+}
+
 export type DocTab = ReturnType<typeof createDocTab>;
 
 export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mime: string) {
@@ -47,12 +50,12 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
   // A restored draft differs from the stored file even though the plugin just loaded it.
   const [restored, setRestored] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
-  const [live, setLive] = createSignal(true);
   let etag: string | null = null;
   let broker: Broker | null = null;
   let timer: number | undefined;
   let lastDraft = "";
-  let lastUsed = Date.now();
+  // Hash of what the editor showed when loaded or last saved; backs up the plugin's dirty flag.
+  let savedHash: string | null = null;
 
   const dirty = () => pluginDirty() || restored();
   const name = () => basename(ref().key);
@@ -98,6 +101,8 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
       }
       if (broker !== b) return;
       await b.load({ name: name(), mime, bytes, readOnly: false });
+      // Best effort: without it the close check relies on the plugin's flag alone.
+      savedHash = await b.serialize().then(digest).catch(() => null);
       setPluginDirty(false);
       setRestored(fromDraft);
       setStatus("ready");
@@ -170,6 +175,7 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
         }
       }
       b.saved();
+      savedHash = await digest(bytes);
       setPluginDirty(false);
       setRestored(false);
       lastDraft = "";
@@ -177,6 +183,20 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
       return true;
     } finally {
       setSaving(false);
+    }
+  }
+
+  /** Close-time check: the plugin's flag, or the content differs from the loaded/saved version. */
+  async function hasChanges(): Promise<boolean> {
+    if (dirty()) return true;
+    if (!broker || saving() || status() !== "ready" || savedHash === null) return false;
+    try {
+      const now = await digest(await broker.serialize());
+      if (now === savedHash) return false;
+      setPluginDirty(true);
+      return true;
+    } catch {
+      return false;
     }
   }
 
@@ -195,18 +215,12 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
     error,
     dirty,
     saving,
-    live,
+    hasChanges,
     attach,
     detach,
     save,
     discard,
     onPluginDirty: setPluginDirty,
     fault: (reason: string) => { detach(); fail(new Error(reason)); },
-    flushDraft: writeDraft,
-    touch: () => { lastUsed = Date.now(); },
-    lastUsed: () => lastUsed,
-    /** Drop the frame to free memory; re-shown tabs reload from storage. */
-    unload: () => { detach(); setLive(false); },
-    revive: () => setLive(true),
   };
 }

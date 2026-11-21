@@ -56,22 +56,3 @@ async fn conditional_save_s3() {
     conditional_save_contract(&store, &bucket).await;
     common::cleanup_bucket(&store, &bucket).await;
 }
-
-#[tokio::test]
-async fn workspaces_crud_and_account_cascade() {
-    let (db, _td, acct) = common::tmp_db_with_account().await;
-    let ws = db.plugin_workspace_add("excalidraw", "Drawings", &acct, "bkt", "art/").await.unwrap();
-    db.plugin_workspace_add("other", "X", &acct, "bkt", "").await.unwrap();
-
-    let list = db.plugin_workspace_list("excalidraw").await.unwrap();
-    assert_eq!(list.len(), 1);
-    assert_eq!((list[0].label.as_str(), list[0].bucket.as_str(), list[0].prefix.as_str()), ("Drawings", "bkt", "art/"));
-    assert_eq!(db.plugin_workspace_get(&ws.id).await.unwrap().unwrap().account_id, acct);
-
-    assert!(db.plugin_workspace_remove(&ws.id).await.unwrap());
-    assert!(!db.plugin_workspace_remove(&ws.id).await.unwrap());
-    assert!(db.plugin_workspace_list("excalidraw").await.unwrap().is_empty());
-
-    db.delete_account(&acct).await.unwrap();
-    assert!(db.plugin_workspace_list("other").await.unwrap().is_empty());
-}
