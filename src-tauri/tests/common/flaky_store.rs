@@ -82,7 +82,7 @@ impl ObjectStore for FlakyStore {
     async fn put_object_acl(&self, _: &str, _: &str, _: CannedAcl) -> AppResult<()> { unsupported() }
     async fn presign_get(&self, _: &str, _: &str, _: u64) -> AppResult<String> { unsupported() }
     async fn read_object_range(&self, _: &str, _: &str, _: u64) -> AppResult<ObjectPreview> { unsupported() }
-    async fn read_object_full(&self, b: &str, k: &str) -> AppResult<Vec<u8>> { self.inner.read_object_full(b, k).await }
+    async fn read_object_full(&self, b: &str, k: &str, max: u64) -> AppResult<Vec<u8>> { self.inner.read_object_full(b, k, max).await }
     async fn get_object_tagging(&self, _: &str, _: &str) -> AppResult<Vec<ObjectTag>> { unsupported() }
     async fn put_object_tagging(&self, _: &str, _: &str, _: &[ObjectTag]) -> AppResult<()> { unsupported() }
     async fn delete_object_tagging(&self, _: &str, _: &str) -> AppResult<()> { unsupported() }

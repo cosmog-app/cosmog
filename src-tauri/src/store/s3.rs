@@ -832,8 +832,9 @@ impl ObjectStore for S3Store {
         self.read_range(bucket, key, max_bytes).await
     }
 
-    async fn read_object_full(&self, bucket: &str, key: &str) -> AppResult<Vec<u8>> {
-        let resp = self
+    async fn read_object_full(&self, bucket: &str, key: &str, max_bytes: u64) -> AppResult<Vec<u8>> {
+        let too_big = || AppError::EntityTooLarge(format!("object exceeds {max_bytes} bytes"));
+        let mut resp = self
             .client
             .get_object()
             .bucket(bucket)
@@ -841,12 +842,18 @@ impl ObjectStore for S3Store {
             .send()
             .await
             .map_err(|e| classify_aws("get_object", e))?;
-        let body = resp
-            .body
-            .collect()
-            .await
-            .map_err(|e| s3_err("get_object full body", e))?;
-        Ok(body.to_vec())
+        if resp.content_length().is_some_and(|n| n.max(0) as u64 > max_bytes) {
+            return Err(too_big());
+        }
+        let mut out = Vec::new();
+        while let Some(chunk) = resp.body.next().await {
+            let chunk = chunk.map_err(|e| s3_err("get_object full body", e))?;
+            if (out.len() + chunk.len()) as u64 > max_bytes {
+                return Err(too_big());
+            }
+            out.extend_from_slice(&chunk);
+        }
+        Ok(out)
     }
 
     async fn abort_multipart_upload(

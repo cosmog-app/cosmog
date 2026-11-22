@@ -26,14 +26,14 @@ async fn conditional_save_contract(store: &Arc<dyn ObjectStore>, bucket: &str) {
 
     let e1 = put(b"v1", create()).await.unwrap().expect("etag on create");
     assert_eq!(put(b"dup", create()).await.unwrap_err().code(), "conflict");
-    assert_eq!(store.read_object_full(bucket, k).await.unwrap(), b"v1");
+    assert_eq!(store.read_object_full(bucket, k, u64::MAX).await.unwrap(), b"v1");
 
     let e2 = put(b"v2", matching(&e1)).await.unwrap().expect("etag on save");
     assert_ne!(e1, e2);
 
     // Another device saved v2; this editor still holds e1.
     assert_eq!(put(b"stale", matching(&e1)).await.unwrap_err().code(), "conflict");
-    assert_eq!(store.read_object_full(bucket, k).await.unwrap(), b"v2");
+    assert_eq!(store.read_object_full(bucket, k, u64::MAX).await.unwrap(), b"v2");
 
     store.delete_object(bucket, k).await.unwrap();
     assert_eq!(put(b"after-delete", matching(&e2)).await.unwrap_err().code(), "conflict");

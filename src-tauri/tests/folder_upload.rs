@@ -123,7 +123,7 @@ async fn tree_is_mirrored_exactly() {
     let remote = keys(&store, &bucket, "dst/").await;
     assert_eq!(remote.keys().cloned().collect::<BTreeSet<_>>(), expected);
     for (rel, body) in &local {
-        let got = store.read_object_full(&bucket, &format!("dst/{rel}")).await.unwrap();
+        let got = store.read_object_full(&bucket, &format!("dst/{rel}"), u64::MAX).await.unwrap();
         assert!(got == *body, "bytes differ for {rel}");
     }
     assert!(ctx.db.list_job_transfers(&a.job_id).await.unwrap().is_empty(), "no job rows left");
@@ -242,7 +242,7 @@ async fn symlinks_are_never_followed() {
     let remote = keys(&store, &bucket, "").await;
     assert_eq!(remote.keys().cloned().collect::<Vec<_>>(), vec!["s/a/real.txt".to_string()]);
     for k in remote.keys() {
-        let body = store.read_object_full(&bucket, k).await.unwrap();
+        let body = store.read_object_full(&bucket, k, u64::MAX).await.unwrap();
         assert!(!body.windows(secret.len()).any(|w| w == secret), "secret leaked into {k}");
     }
     common::cleanup_bucket(&store, &bucket).await;
@@ -278,14 +278,14 @@ async fn overwrite_choices_are_honored() {
     assert_eq!(job.counts.skipped_exists, 3);
     assert_eq!(job.counts.done, 7);
     for i in 0..3 {
-        assert_eq!(store.read_object_full(&bucket, &format!("o/f{i}.txt")).await.unwrap(), b"seeded");
+        assert_eq!(store.read_object_full(&bucket, &format!("o/f{i}.txt"), u64::MAX).await.unwrap(), b"seeded");
     }
 
     // Same tree again with overwrite.
     let id = analyze_checked(&ctx, &acct, &bucket, root, "o/").await;
     fu::approve(&ctx, &id, Some(OverwritePolicy::Overwrite), true).await.unwrap();
     assert_eq!(wait_settled(&ctx, &id, 30).await.counts.done, 10);
-    assert_eq!(store.read_object_full(&bucket, "o/f0.txt").await.unwrap(), b"local 0");
+    assert_eq!(store.read_object_full(&bucket, "o/f0.txt", u64::MAX).await.unwrap(), b"local 0");
 
     // Late appearance: a key written after the check is skipped via If-None-Match (412).
     let id = analyze_checked(&ctx, &acct, &bucket, root, "late/").await;
@@ -294,7 +294,7 @@ async fn overwrite_choices_are_honored() {
     let job = wait_settled(&ctx, &id, 30).await;
     assert_eq!(job.counts.skipped_exists, 1);
     assert_eq!(job.appeared_after_check, 1);
-    assert_eq!(store.read_object_full(&bucket, "late/f5.txt").await.unwrap(), b"late");
+    assert_eq!(store.read_object_full(&bucket, "late/f5.txt", u64::MAX).await.unwrap(), b"late");
     common::cleanup_bucket(&store, &bucket).await;
 }
 
@@ -318,7 +318,7 @@ async fn drift_outcomes() {
     assert_eq!(job.state, JobState::CompletedWithErrors);
     assert_eq!(job.counts.skipped_missing, 1);
     assert_eq!(job.drift, 1);
-    assert_eq!(store.read_object_full(&bucket, "d/grow.txt").await.unwrap(), b"version two, longer");
+    assert_eq!(store.read_object_full(&bucket, "d/grow.txt", u64::MAX).await.unwrap(), b"version two, longer");
     let drift = fu::list_items(&ctx, &id, ItemFilter::Drift, 0, 10).await.unwrap();
     assert_eq!(drift.items[0].rel_path, "grow.txt");
     assert_eq!(drift.items[0].state, ItemState::Done);
@@ -360,7 +360,7 @@ async fn drift_outcomes() {
     assert_eq!(job.state, JobState::Completed);
     assert_eq!(job.counts.done, 1);
     assert_eq!(job.appeared_after_check, 0);
-    assert_eq!(store.read_object_full(&bucket, "s/once.log").await.unwrap(), b"start+more");
+    assert_eq!(store.read_object_full(&bucket, "s/once.log", u64::MAX).await.unwrap(), b"start+more");
     common::cleanup_bucket(&store, &bucket).await;
 }
 
@@ -385,7 +385,7 @@ async fn encrypted_round_trip() {
     let identity = cosmog_lib::crypto::parse_identity(&secret).unwrap();
     for (rel, body) in local_files(root) {
         let key = format!("e/{rel}");
-        let cipher = store.read_object_full(&bucket, &key).await.unwrap();
+        let cipher = store.read_object_full(&bucket, &key, u64::MAX).await.unwrap();
         assert_ne!(cipher, body);
         assert_eq!(cosmog_lib::crypto::decrypt_bytes(&identity, &cipher).unwrap(), body, "{rel}");
         let meta = store.head_object(&bucket, &key).await.unwrap();
@@ -457,7 +457,7 @@ async fn pause_and_resume_keep_parts() {
     let (uid2, resent) = after.lock().unwrap().clone();
     assert_eq!(uid2, upload_id, "same multipart upload resumed");
     assert!(resent.is_disjoint(&before), "parts {before:?} re-sent: {resent:?}");
-    assert_eq!(store.read_object_full(&bucket, "p/big.bin").await.unwrap(), body);
+    assert_eq!(store.read_object_full(&bucket, "p/big.bin", u64::MAX).await.unwrap(), body);
     no_multipart_left(&store, &bucket, "p/").await;
     common::cleanup_bucket(&store, &bucket).await;
 }
@@ -492,7 +492,7 @@ async fn pause_and_resume_encrypted_restarts_cleanly() {
         .collect();
     assert_ne!(ids.last().unwrap(), &old_upload, "ciphertext restarts on a new upload");
     let identity = cosmog_lib::crypto::parse_identity(&secret).unwrap();
-    let cipher = store.read_object_full(&bucket, "pe/big.bin").await.unwrap();
+    let cipher = store.read_object_full(&bucket, "pe/big.bin", u64::MAX).await.unwrap();
     assert_eq!(cosmog_lib::crypto::decrypt_bytes(&identity, &cipher).unwrap(), body);
     common::cleanup_bucket(&store, &bucket).await;
 }
@@ -627,7 +627,7 @@ async fn resume_after_crash_uploads_only_the_remainder() {
     assert!(parts_after.is_disjoint(&parts_before), "re-sent {parts_before:?} ∩ {parts_after:?}");
     let remote = keys(&store, &bucket, "r/").await;
     assert_eq!(remote.len(), 61);
-    assert_eq!(store.read_object_full(&bucket, "r/big.bin").await.unwrap(), big);
+    assert_eq!(store.read_object_full(&bucket, "r/big.bin", u64::MAX).await.unwrap(), big);
     no_multipart_left(&store, &bucket, "r/").await;
     assert!(ctx.db.list_job_transfers(&id).await.unwrap().is_empty());
     common::cleanup_bucket(&store, &bucket).await;
@@ -693,7 +693,7 @@ async fn multipart_resume_uses_list_parts_not_the_journal() {
     assert_eq!(res.upload_id.as_deref(), Some(upload_id.as_str()));
     let resent: HashSet<i32> = second.lock().unwrap().iter().map(|(n, _)| *n).collect();
     assert_eq!(resent, (4..=6).collect::<HashSet<i32>>(), "only the missing parts are sent");
-    assert_eq!(store.read_object_full(&bucket, "lp.bin").await.unwrap(), body);
+    assert_eq!(store.read_object_full(&bucket, "lp.bin", u64::MAX).await.unwrap(), body);
     no_multipart_left(&store, &bucket, "").await;
     common::cleanup_bucket(&store, &bucket).await;
 }

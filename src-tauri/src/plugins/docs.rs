@@ -59,7 +59,7 @@ pub async fn read(state: &AppState, account_id: &str, bucket: &str, key: &str) -
     if head.size.max(0) as usize > MAX_DOC_BYTES {
         return Err(too_big(head.size as usize));
     }
-    let data = store.read_object_full(bucket, key).await?;
+    let data = store.read_object_full(bucket, key, MAX_DOC_BYTES as u64).await?;
     let marked = head.user_metadata.get("cosmog-encrypted").map(String::as_str) == Some("1");
     let age = crate::crypto::is_age_ciphertext(&data);
     // Trust the bytes over metadata: a stripped or forged marker must never hand ciphertext to a plugin.

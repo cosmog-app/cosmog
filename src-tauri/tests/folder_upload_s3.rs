@@ -62,7 +62,7 @@ async fn conditional_writes_never_replace_existing_objects() {
         std::fs::write(src.path(), body(len, 1)).unwrap();
         let e = store.put_object(&bucket, key, src.path().into(), inm.clone(), ctx_for(5)).await.unwrap_err();
         assert_eq!(e.code(), "conflict", "{key}");
-        assert_eq!(store.read_object_full(&bucket, key).await.unwrap(), b"theirs", "{key} replaced");
+        assert_eq!(store.read_object_full(&bucket, key, u64::MAX).await.unwrap(), b"theirs", "{key} replaced");
     }
     // The refused multipart upload stays open for its owner (the worker) to abort.
     assert_eq!(abort_all(&store, &bucket).await, 1);
@@ -70,14 +70,14 @@ async fn conditional_writes_never_replace_existing_objects() {
     for (key, len) in [("new-small", 1024usize), ("new-big", 11 * MIB)] {
         std::fs::write(src.path(), body(len, 2)).unwrap();
         store.put_object(&bucket, key, src.path().into(), inm.clone(), ctx_for(5)).await.unwrap();
-        assert_eq!(store.read_object_full(&bucket, key).await.unwrap(), body(len, 2));
+        assert_eq!(store.read_object_full(&bucket, key, u64::MAX).await.unwrap(), body(len, 2));
     }
     // L4: a marker never replaces an existing object at its key.
     store.put_object_bytes(&bucket, "dir/", "text/plain", b"data".to_vec(), Default::default()).await.unwrap();
     assert!(!store.create_folder_if_absent(&bucket, "dir").await.unwrap());
-    assert_eq!(store.read_object_full(&bucket, "dir/").await.unwrap(), b"data");
+    assert_eq!(store.read_object_full(&bucket, "dir/", u64::MAX).await.unwrap(), b"data");
     assert!(store.create_folder_if_absent(&bucket, "fresh").await.unwrap());
-    assert_eq!(store.read_object_full(&bucket, "fresh/").await.unwrap(), b"");
+    assert_eq!(store.read_object_full(&bucket, "fresh/", u64::MAX).await.unwrap(), b"");
     common::cleanup_bucket(&store, &bucket).await;
 }
 
@@ -131,7 +131,7 @@ async fn network_loss_resumes_the_same_upload() {
     let distinct: BTreeSet<i32> = parts.iter().copied().collect();
     assert_eq!(distinct.len(), parts.len(), "a part was sent twice: {parts:?}");
     assert_eq!(distinct, (1..=6).collect());
-    assert_eq!(real.read_object_full(&bucket, "n/big.bin").await.unwrap(), big);
+    assert_eq!(real.read_object_full(&bucket, "n/big.bin", u64::MAX).await.unwrap(), big);
     let meta = real.head_object(&bucket, "n/big.bin").await.unwrap();
     assert!(meta.user_metadata.get("cosmog-fu").is_some_and(|t| t.starts_with(&id)), "tagged as this job's write");
     assert_eq!(abort_all(&real, &bucket).await, 0, "no multipart upload left");
@@ -180,7 +180,7 @@ async fn oversized_saved_layout_restarts_fresh() {
     });
     let r = store.put_object(&bucket, "l5.bin", src.path().into(), PutOptions::default(), ctx).await.unwrap();
     assert_ne!(r.upload_id.as_deref(), Some(old_id.as_str()), "restarted on a new upload");
-    assert_eq!(store.read_object_full(&bucket, "l5.bin").await.unwrap(), data);
+    assert_eq!(store.read_object_full(&bucket, "l5.bin", u64::MAX).await.unwrap(), data);
     assert_eq!(abort_all(&store, &bucket).await, 0, "the old upload was aborted");
     common::cleanup_bucket(&store, &bucket).await;
 }
