@@ -122,6 +122,11 @@ impl Db {
     }
 }
 
+/// Schema version a fully migrated database ends at.
+pub fn latest_schema_version() -> u32 {
+    MIGRATIONS.last().map_or(0, |m| m.version)
+}
+
 /// One forward-only schema change, identified by a monotonically increasing version.
 struct Migration {
     version: u32,

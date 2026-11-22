@@ -600,7 +600,7 @@ async fn version_20_database_migrates_to_latest() {
         .call(|c| Ok::<_, tokio_rusqlite::Error>(c.query_row("SELECT MAX(version) FROM schema_migrations", [], |r| r.get(0))?))
         .await
         .unwrap();
-    assert_eq!(max, 23);
+    assert_eq!(max, i64::from(cosmog_lib::db::latest_schema_version()));
     let old = db.get_transfer("old").await.unwrap();
     assert_eq!(old.job_id, None);
     assert_eq!(db.list_transfers(None).await.unwrap().len(), 1);
