@@ -7,7 +7,7 @@ use crate::db::Db;
 use crate::error::{AppError, AppResult};
 
 use super::manifest::{Manifest, Platform};
-use super::{plugin_dir, PluginRegistry};
+use super::{plugin_dir, PluginRegistry, Staging};
 
 pub const MAX_FILES: usize = 5000;
 pub const MAX_TOTAL_BYTES: u64 = 200 * 1024 * 1024;
@@ -24,16 +24,12 @@ pub async fn load_unpacked(db: &Db, registry: &PluginRegistry, src: &Path, app_v
     }
 
     let root = registry.root().to_path_buf();
-    let staging = root.join(format!(".staging-{}", uuid::Uuid::new_v4()));
+    let staging = Staging::new(&root);
     let src_owned = src.to_path_buf();
-    let staging_c = staging.clone();
-    let copied = tokio::task::spawn_blocking(move || copy_tree(&src_owned, &staging_c))
+    let staging_c = staging.path().to_path_buf();
+    tokio::task::spawn_blocking(move || copy_tree(&src_owned, &staging_c))
         .await
-        .map_err(|e| AppError::Internal(format!("copy task: {e}")))?;
-    if let Err(e) = copied {
-        let _ = tokio::fs::remove_dir_all(&staging).await;
-        return Err(e);
-    }
+        .map_err(|e| AppError::Internal(format!("copy task: {e}")))??;
 
     let dest = plugin_dir(&root, &manifest.id, &manifest.version);
     let id_dir = root.join(&manifest.id);
@@ -42,10 +38,8 @@ pub async fn load_unpacked(db: &Db, registry: &PluginRegistry, src: &Path, app_v
         tokio::fs::remove_dir_all(&id_dir).await?;
     }
     tokio::fs::create_dir_all(&id_dir).await?;
-    if let Err(e) = tokio::fs::rename(&staging, &dest).await {
-        let _ = tokio::fs::remove_dir_all(&staging).await;
-        return Err(e.into());
-    }
+    tokio::fs::rename(staging.path(), &dest).await?;
+    staging.keep();
 
     let json = serde_json::to_string(&manifest).map_err(|e| AppError::Internal(e.to_string()))?;
     db.plugin_upsert(&manifest.id, &manifest.version, "dev", &json).await?;
@@ -61,6 +55,11 @@ pub async fn remove(db: &Db, registry: &PluginRegistry, id: &str) -> AppResult<(
     let dir = registry.root().join(id);
     if dir.exists() {
         tokio::fs::remove_dir_all(&dir).await?;
+    }
+    // Unsaved drafts are copies of documents (plaintext for unencrypted buckets): they go too.
+    let drafts = registry.drafts_root().join(id);
+    if drafts.exists() {
+        tokio::fs::remove_dir_all(&drafts).await?;
     }
     registry.reload(db).await
 }
