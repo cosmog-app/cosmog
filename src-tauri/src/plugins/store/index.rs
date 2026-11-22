@@ -52,6 +52,7 @@ pub struct StoreEntry {
     pub repository: Option<String>,
     #[serde(default)]
     pub upstream: Option<Link>,
+    #[serde(deserialize_with = "known_platforms")]
     pub platforms: Vec<Platform>,
     #[serde(default)]
     pub min_app_version: Option<String>,
@@ -63,10 +64,17 @@ pub struct StoreEntry {
     pub download: Download,
 }
 
+// Entries parse one by one: a single entry this version can't read must not hide the others.
 #[derive(Debug, Deserialize)]
 struct Index {
     schema: u32,
-    plugins: Vec<StoreEntry>,
+    plugins: Vec<serde_json::Value>,
+}
+
+/// Platforms added after this release are ignored, not an error.
+fn known_platforms<'de, D: serde::Deserializer<'de>>(d: D) -> Result<Vec<Platform>, D::Error> {
+    let raw = Vec::<serde_json::Value>::deserialize(d)?;
+    Ok(raw.into_iter().filter_map(|v| serde_json::from_value(v).ok()).collect())
 }
 
 const ICON_PREFIXES: &[&str] = &["data:image/png;base64,", "data:image/svg+xml;base64,"];
@@ -95,7 +103,18 @@ pub fn parse(json: &[u8]) -> AppResult<Vec<StoreEntry>> {
     if idx.schema != SCHEMA {
         return Err(AppError::InvalidInput(format!("plugin index schema {} needs a newer Cosmog", idx.schema)));
     }
-    let mut out: Vec<StoreEntry> = idx.plugins.into_iter().filter_map(|mut e| e.sanitize().then_some(e)).collect();
+    let mut out: Vec<StoreEntry> = idx
+        .plugins
+        .into_iter()
+        .filter_map(|v| match serde_json::from_value::<StoreEntry>(v) {
+            Ok(e) => Some(e),
+            Err(e) => {
+                tracing::warn!("plugin index: entry skipped: {e}");
+                None
+            }
+        })
+        .filter_map(|mut e| e.sanitize().then_some(e))
+        .collect();
     out.sort_by_key(|e| e.name.to_lowercase());
     Ok(out)
 }
@@ -134,5 +153,17 @@ mod tests {
         let json = format!(r#"{{"schema":1,"plugins":[{bad},{}]}}"#, entry(""));
         assert_eq!(parse(json.as_bytes()).unwrap().len(), 1);
         assert!(parse(br#"{"schema":2,"plugins":[]}"#).is_err());
+    }
+
+    #[test]
+    fn future_entries_do_not_break_the_catalog() {
+        let ios = entry("").replace("\"excalidraw\"", "\"alpha\"").replace(r#"["desktop"]"#, r#"["desktop","ios"]"#);
+        let broken = entry("").replace("\"excalidraw\"", "\"beta\"").replace(r#""download""#, r#""dl""#);
+        let json = format!(r#"{{"schema":1,"plugins":[{ios},{broken},{}]}}"#, entry(""));
+        let list = parse(json.as_bytes()).unwrap();
+        let ids: Vec<_> = list.iter().map(|e| e.id.as_str()).collect();
+        assert_eq!(ids.len(), 2, "{ids:?}");
+        let a = list.iter().find(|e| e.id == "alpha").unwrap();
+        assert_eq!(a.platforms, vec![Platform::Desktop]);
     }
 }
