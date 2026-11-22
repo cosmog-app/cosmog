@@ -76,7 +76,9 @@ pub async fn plugin_doc_write(state: State<'_, AppState>, request: Request<'_>) 
     if m.if_match.is_none() && !m.create {
         return Err(AppError::InvalidInput("write needs ifMatch or create".into()));
     }
-    let key = validate::require_non_empty("key", &m.key)?;
+    // Validated, never trimmed: the save must hit the exact key that was opened.
+    validate::require_non_empty("key", &m.key)?;
+    let key = m.key;
     if key.ends_with('/') {
         return Err(AppError::InvalidInput("key must name a file".into()));
     }
