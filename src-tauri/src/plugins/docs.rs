@@ -122,7 +122,10 @@ pub fn draft_paths(root: &Path, plugin_id: &str, account_id: &str, bucket: &str,
 }
 
 fn write_atomic(path: &Path, data: &[u8]) -> std::io::Result<()> {
-    let tmp = path.with_extension("tmp");
+    // Unique per write: two writers sharing one tmp file could swap body and meta.
+    let mut tmp = path.as_os_str().to_owned();
+    tmp.push(format!(".{}.tmp", uuid::Uuid::new_v4().simple()));
+    let tmp = PathBuf::from(tmp);
     std::fs::write(&tmp, data)?;
     std::fs::rename(&tmp, path)
 }

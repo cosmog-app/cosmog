@@ -26,14 +26,6 @@ export function conflictCopyKey(key: string, now = new Date()): string {
   return `${key.slice(0, cut)} (conflict ${stamp})${key.slice(cut)}`;
 }
 
-// Cheap change check so an idle dirty tab doesn't rewrite the same draft every tick.
-function fingerprint(b: ArrayBuffer): string {
-  const u = new Uint8Array(b);
-  let h = u.byteLength;
-  for (let i = 0; i < u.byteLength; i += 64) h = (h * 31 + u[i]) >>> 0;
-  return `${u.byteLength}:${h}`;
-}
-
 async function digest(b: ArrayBuffer): Promise<string> {
   const h = new Uint8Array(await crypto.subtle.digest("SHA-256", b));
   return Array.from(h, (x) => x.toString(16).padStart(2, "0")).join("");
@@ -53,7 +45,10 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
   let etag: string | null = null;
   let broker: Broker | null = null;
   let timer: number | undefined;
+  // Hash of the last draft written, so an idle dirty tab doesn't rewrite it every tick.
   let lastDraft = "";
+  // The draft write in flight: never two at once, and save/discard wait for it.
+  let drafting: Promise<void> | null = null;
   // Hash of what the editor showed when loaded or last saved; backs up the plugin's dirty flag.
   let savedHash: string | null = null;
 
@@ -87,7 +82,11 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
       let bytes = doc.bytes;
       etag = doc.meta.etag;
       let fromDraft = false;
-      const draft = await pluginDraftGet(plugin.id, ref());
+      // A draft that can't be read (bucket key rotated, corrupt file) must not block the document.
+      const draft = await pluginDraftGet(plugin.id, ref()).catch((e) => {
+        console.warn("plugin draft unreadable", e);
+        return null;
+      });
       if (draft) {
         const choice = await askRestore(draft.meta.savedAt, draft.meta.baseEtag !== etag);
         if (choice === true) {
@@ -120,22 +119,27 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
 
   function startDrafts() {
     window.clearInterval(timer);
-    timer = window.setInterval(() => void writeDraft(), DRAFT_EVERY_MS);
+    timer = window.setInterval(writeDraft, DRAFT_EVERY_MS);
   }
 
-  async function writeDraft() {
+  function writeDraft() {
     // Never serialize mid-save: the plugin's saved baseline is the last serialize it answered.
-    if (!broker || !dirty() || saving() || status() !== "ready") return;
-    try {
-      const bytes = await broker.serialize();
-      if (saving()) return;
-      const fp = fingerprint(bytes);
-      if (fp === lastDraft) return;
-      await pluginDraftPut(plugin.id, { ...ref(), baseEtag: etag }, bytes);
-      lastDraft = fp;
-    } catch {
-      // A missed draft is retried next tick; the document itself is untouched.
-    }
+    if (drafting || !broker || !dirty() || saving() || status() !== "ready") return;
+    const b = broker;
+    drafting = (async () => {
+      try {
+        const bytes = await b.serialize();
+        if (broker !== b || saving()) return;
+        const h = await digest(bytes);
+        if (h === lastDraft) return;
+        await pluginDraftPut(plugin.id, { ...ref(), baseEtag: etag }, bytes);
+        lastDraft = h;
+      } catch {
+        // A missed draft is retried next tick; the document itself is untouched.
+      } finally {
+        drafting = null;
+      }
+    })();
   }
 
   async function write(bytes: ArrayBuffer, target: PluginDocRef, ifMatch: string | null) {
@@ -148,6 +152,8 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
     if (!b || saving() || status() !== "ready") return false;
     setSaving(true);
     try {
+      // A draft landing after this save's clear would resurrect old content.
+      await drafting;
       const bytes = await b.serialize();
       let target = ref();
       try {
@@ -176,10 +182,12 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
       }
       b.saved();
       savedHash = await digest(bytes);
-      setPluginDirty(false);
       setRestored(false);
       lastDraft = "";
       await pluginDraftClear(plugin.id, target).catch(() => {});
+      // Edits typed during the upload are not in what was stored: stay dirty for them.
+      const now = await b.serialize().then(digest).catch(() => null);
+      setPluginDirty(now !== null && now !== savedHash);
       return true;
     } finally {
       setSaving(false);
@@ -203,6 +211,7 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
   /** Close without saving: the draft goes too. */
   async function discard() {
     detach();
+    await drafting;
     await pluginDraftClear(plugin.id, ref()).catch(() => {});
   }
 
