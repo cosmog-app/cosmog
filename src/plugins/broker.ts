@@ -10,6 +10,8 @@ export const PLUGIN_API_VERSIONS = [1];
 /** Per-message payload cap, both directions. */
 export const MAX_PLUGIN_BYTES = 128 * 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 30_000;
+// A plugin that never says ready (script error, missing asset) must fail visibly, not load forever.
+const BOOT_TIMEOUT_MS = 20_000;
 const TOAST_MIN_GAP_MS = 2_000;
 const TOAST_MAX_CHARS = 200;
 
@@ -60,8 +62,11 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
   const ready = new Promise<number>((res, rej) => { markReady = res; failReady = rej; });
   // Avoid an unhandled rejection when nobody awaits `ready` before a fault.
   ready.catch(() => {});
+  const boot = window.setTimeout(() => fault("plugin did not start"), BOOT_TIMEOUT_MS);
 
+  let started = false;
   const fault = (reason: string) => {
+    window.clearTimeout(boot);
     failReady(new Error(reason));
     ev.onFault?.(reason);
   };
@@ -91,11 +96,18 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
     const params = isObj(m.params) ? m.params : {};
     switch (m.method) {
       case "ready": {
+        // A second ready means the page reloaded and lost the document; saving now would write a blank one.
+        if (started) {
+          fault("plugin reloaded");
+          return;
+        }
         const v = params.apiVersion;
         if (typeof v !== "number" || !PLUGIN_API_VERSIONS.includes(v)) {
           fault(`unsupported apiVersion ${String(v)}`);
           return;
         }
+        started = true;
+        window.clearTimeout(boot);
         markReady(v);
         ev.onReady?.(v);
         return;
@@ -158,6 +170,7 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
     },
     dispose() {
       disposed = true;
+      window.clearTimeout(boot);
       window.removeEventListener("message", onMessage);
       for (const p of pending.values()) {
         window.clearTimeout(p.timer);

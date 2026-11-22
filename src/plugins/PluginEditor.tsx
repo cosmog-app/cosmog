@@ -93,6 +93,10 @@ export function PluginEditor(props: { doc: OpenDoc }) {
             onDirty: (d) => tab.onPluginDirty(d),
             onSave: () => void save(),
             onFault: (r) => tab.fault(r),
+            // Titled with the plugin's name so its text never passes for an app message.
+            onToast: (kind, text) => kind === "error"
+              ? toast.warn(text, props.doc.plugin.manifest.name)
+              : toast.info(props.doc.plugin.manifest.name, text),
           }}
         />
         <Show when={tab.status() !== "ready"}>
