@@ -62,7 +62,7 @@ export function useCloseGuard() {
         asking = true;
         try {
           if (await shouldClose()) await closeUnguarded(win);
-        } finally { asking = false; }
+        } finally { asking = false; sync(); }
       });
       if (!needed()) release(fn); else unlisten = fn;
     } catch { /* no window API: close behaves as before */ }
@@ -72,7 +72,9 @@ export function useCloseGuard() {
   function sync() {
     const need = needed();
     if (need && !unlisten && !pending) void register();
-    if (!need && unlisten) { release(unlisten); unlisten = null; }
+    // Not mid-prompt: Save / Don't save closes the document, and dropping the listener then would
+    // race closeUnguarded, which must await the unlisten itself before close().
+    if (!need && unlisten && !asking) { release(unlisten); unlisten = null; }
   }
 
   createEffect(sync);
