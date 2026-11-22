@@ -259,8 +259,8 @@ impl ObjectStore for RegionRetryStore {
         with_retry!(self, bucket, s, s.read_object_range(bucket, key, max_bytes).await)
     }
 
-    async fn read_object_full(&self, bucket: &str, key: &str) -> AppResult<Vec<u8>> {
-        with_retry!(self, bucket, s, s.read_object_full(bucket, key).await)
+    async fn read_object_full(&self, bucket: &str, key: &str, max_bytes: u64) -> AppResult<Vec<u8>> {
+        with_retry!(self, bucket, s, s.read_object_full(bucket, key, max_bytes).await)
     }
 
     async fn get_object_tagging(&self, bucket: &str, key: &str) -> AppResult<Vec<ObjectTag>> {

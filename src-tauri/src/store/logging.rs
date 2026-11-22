@@ -498,9 +498,9 @@ impl ObjectStore for LoggingStore {
         r
     }
 
-    async fn read_object_full(&self, bucket: &str, key: &str) -> AppResult<Vec<u8>> {
+    async fn read_object_full(&self, bucket: &str, key: &str, max_bytes: u64) -> AppResult<Vec<u8>> {
         let start = Instant::now();
-        let r = self.inner.read_object_full(bucket, key).await;
+        let r = self.inner.read_object_full(bucket, key, max_bytes).await;
         let meta = r.as_ref().ok().map(|b| json!({ "bytes_read": b.len() }));
         self.record("read_object_full", "GET",
             self.build_url(Some(bucket), Some(key), None),

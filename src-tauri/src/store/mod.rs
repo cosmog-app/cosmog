@@ -272,8 +272,9 @@ pub trait ObjectStore: Send + Sync {
     ) -> AppResult<ObjectPreview>;
 
     /// Whole-object read bypassing the preview cap (AES-GCM needs full ciphertext).
-    /// Callers must enforce their own size guard beforehand.
-    async fn read_object_full(&self, bucket: &str, key: &str) -> AppResult<Vec<u8>>;
+    /// Fails with `EntityTooLarge` past `max_bytes`, checked on the body itself: the object can
+    /// grow between a caller's HEAD and this GET.
+    async fn read_object_full(&self, bucket: &str, key: &str, max_bytes: u64) -> AppResult<Vec<u8>>;
 
     /// Unsupported providers (B2) return [`AppError::InvalidInput`] so the FE hides the UI.
     async fn get_object_tagging(
@@ -350,7 +351,6 @@ pub trait ObjectStore: Send + Sync {
     ) -> AppResult<(Vec<PendingMultipartUpload>, Option<String>)>;
 }
 
-/// If-None-Match emulation for providers that reject the header: Conflict when `key` exists.
 /// Write precondition for [`ObjectStore::put_object_bytes_if`].
 #[derive(Debug, Clone, Default)]
 pub struct PutCond {
@@ -382,6 +382,7 @@ pub async fn check_cond_with_head<S: ObjectStore + ?Sized>(store: &S, bucket: &s
     Ok(())
 }
 
+/// If-None-Match emulation for providers that reject the header: Conflict when `key` exists.
 pub async fn ensure_absent<S: ObjectStore + ?Sized>(store: &S, bucket: &str, key: &str) -> AppResult<()> {
     match store.head_object(bucket, key).await {
         Ok(_) => Err(AppError::Conflict(format!("{key}: exists (checked with HEAD)"))),

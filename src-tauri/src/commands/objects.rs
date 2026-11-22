@@ -445,7 +445,7 @@ pub async fn preview_object(
 
         // Whole-ciphertext fetch: read_object_full bypasses read_object_range's
         // preview cap; age decrypt needs the full stream to authenticate.
-        let ciphertext = store.read_object_full(&bucket, &key).await?;
+        let ciphertext = store.read_object_full(&bucket, &key, MAX_PREVIEW_DECRYPT_BYTES).await?;
         // Trust the payload bytes, not S3 user metadata: an attacker with PUT
         // rights could strip/forge `cosmog-encrypted`.
         let looks_encrypted = crate::crypto::is_age_ciphertext(&ciphertext);

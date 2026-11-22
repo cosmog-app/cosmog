@@ -279,8 +279,12 @@ impl ObjectStore for MemStore {
     async fn put_object_acl(&self, _: &str, _: &str, _: CannedAcl) -> AppResult<()> { unsupported() }
     async fn presign_get(&self, _: &str, _: &str, _: u64) -> AppResult<String> { unsupported() }
     async fn read_object_range(&self, _: &str, _: &str, _: u64) -> AppResult<ObjectPreview> { unsupported() }
-    async fn read_object_full(&self, _: &str, key: &str) -> AppResult<Vec<u8>> {
-        self.objects.lock().unwrap().get(key).cloned().ok_or_else(|| AppError::ObjectNotFound(key.into()))
+    async fn read_object_full(&self, _: &str, key: &str, max_bytes: u64) -> AppResult<Vec<u8>> {
+        let data = self.objects.lock().unwrap().get(key).cloned().ok_or_else(|| AppError::ObjectNotFound(key.into()))?;
+        if data.len() as u64 > max_bytes {
+            return Err(AppError::EntityTooLarge(format!("object exceeds {max_bytes} bytes")));
+        }
+        Ok(data)
     }
     async fn get_object_tagging(&self, _: &str, _: &str) -> AppResult<Vec<ObjectTag>> { unsupported() }
     async fn put_object_tagging(&self, _: &str, _: &str, _: &[ObjectTag]) -> AppResult<()> { unsupported() }
