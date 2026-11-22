@@ -1,71 +1,63 @@
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, Match, on, Show, Switch } from "solid-js";
 import { currentView } from "../state/app";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
-import type { InstalledPlugin } from "../types";
-import { pluginDevLoad, pluginRemove, pluginSetEnabled } from "../api/plugins";
+import { pluginRemove } from "../api/plugins";
 import { pluginsInstalled, refreshPlugins } from "../state/plugins";
 import { IconPlugin, IconRefresh } from "../utils/icons";
 import { toast } from "../state/toast";
 import { confirmDialog } from "../state/confirm";
 import { t } from "../i18n";
-import { PluginList } from "./plugins/PluginList";
-import { PluginHarness } from "./plugins/PluginHarness";
 import { PluginDetail } from "./plugins/PluginDetail";
 import { StoreGrid } from "./plugins/StoreGrid";
 import { usePluginStore } from "./plugins/useStore";
+import { listings, type Listing } from "./plugins/listing";
 import { parseWireError } from "../utils/wireError";
 
 export default function Plugins() {
-  const plugins = pluginsInstalled;
-  const refetch = refreshPlugins;
-  // Dev builds: the plugin whose protocol test page is showing.
-  const [openId, setOpenId] = createSignal<string | null>(null);
-  const [busy, setBusy] = createSignal(false);
   const store = usePluginStore();
+  const [removing, setRemoving] = createSignal(false);
   const [detailId, setDetailId] = createSignal<string | null>(null);
-  const detail = () => store.entries()?.find((e) => e.id === detailId()) ?? null;
-  onMount(() => void refreshPlugins());
-  // Views stay mounted from startup; only actually showing this one contacts the store.
-  createEffect(() => { if (currentView() === "plugins") store.ensure(); });
-  const opened = () => plugins().find((p) => p.id === openId() && p.enabled && p.compatible) ?? null;
+  const items = () => listings(store.entries() ?? [], pluginsInstalled());
+  const detail = () => items().find((l) => l.id === detailId()) ?? null;
+  const busy = () => store.busy() || removing();
+  const reason = () => parseWireError(store.error()).detail || String(store.error());
 
-  const act = async (fn: () => Promise<unknown>) => {
-    setBusy(true);
-    try {
-      await fn();
-    } catch (e) {
-      toast.err(e);
-    } finally {
-      await refetch();
-      setBusy(false);
-    }
-  };
+  // Views stay mounted from startup; only showing this one contacts the store.
+  createEffect(on(currentView, (v) => {
+    if (v !== "plugins") return;
+    void refreshPlugins();
+    store.ensure();
+  }));
 
-  const devLoad = () => act(async () => {
-    const dir = await openDialog({ directory: true, multiple: false, title: t("plugins.devLoad.pick") });
-    if (typeof dir !== "string") return;
-    const p = await pluginDevLoad(dir);
-    toast.ok(t("plugins.devLoad.done"), `${p.manifest.name} v${p.version}`);
-  });
+  const install = (l: Listing) => { if (l.entry) void store.install(l.entry); };
 
-  const remove = async (p: InstalledPlugin) => {
+  async function remove(l: Listing) {
     const ok = await confirmDialog({
-      title: t("plugins.remove.title", { name: p.manifest.name }),
+      title: t("plugins.remove.title", { name: l.name }),
       body: t("plugins.remove.body"),
       confirmLabel: t("plugins.remove"),
       danger: true,
     });
     if (!ok) return;
-    if (openId() === p.id) setOpenId(null);
-    await act(() => pluginRemove(p.id));
-  };
+    setRemoving(true);
+    try {
+      await pluginRemove(l.id);
+    } catch (e) {
+      toast.err(e);
+    } finally {
+      await refreshPlugins();
+      setRemoving(false);
+    }
+  }
 
   return (
     <div class="view-container">
-      <Show when={opened()} fallback={
-        <Show when={detail()} fallback={<>
+      <Show when={detail()} fallback={<>
         <div class="view-header">
           <span class="section-title">{t("plugins.title")}</span>
+          <button class="icon-btn refresh-btn plugins-refresh" classList={{ spinning: store.loading() }}
+                  title={t("plugins.store.refresh")} aria-label={t("plugins.store.refresh")} onClick={() => void store.load()}>
+            <IconRefresh size={14} />
+          </button>
         </div>
         <div class="plugins-body">
           <div class="plugins-intro">
@@ -75,58 +67,27 @@ export default function Plugins() {
               <span class="plugins-intro-body">{t("plugins.intro.body")}</span>
             </div>
           </div>
-          <div class="settings-section">
-            <div class="plugins-section-head">
-              <div class="settings-section-title">{t("plugins.store.title")}</div>
-              <button class="icon-btn" title={t("plugins.store.refresh")} aria-label={t("plugins.store.refresh")}
-                      disabled={store.entries.loading} onClick={store.load}>
-                <IconRefresh size={14} />
-              </button>
-            </div>
-            <Show when={!store.entries.error} fallback={
-              <div class="plugins-empty plugins-item-warn">
-                {t("plugins.store.failed", { reason: parseWireError(store.entries.error).detail || String(store.entries.error) })}
-              </div>
-            }>
-              <Show when={store.entries()} fallback={<div class="plugins-empty">{t("plugins.store.loading")}</div>}>
-                {(list) => (
-                  <Show when={list().length > 0} fallback={<div class="plugins-empty">{t("plugins.store.empty")}</div>}>
-                    <StoreGrid entries={list()} installed={plugins()} appVersion={store.appVersion()}
-                               progress={store.progress} busy={store.busy()}
-                               onOpen={(e) => setDetailId(e.id)} onInstall={(e) => void store.install(e)} />
-                  </Show>
-                )}
+          <Switch fallback={<div class="plugins-empty">{t("plugins.store.empty")}</div>}>
+            <Match when={items().length > 0}>
+              <StoreGrid items={items()} appVersion={store.appVersion()} progress={store.progress} busy={busy()}
+                         onOpen={(l) => setDetailId(l.id)} onInstall={install} onRemove={(l) => void remove(l)} />
+              <Show when={store.error()}>
+                <div class="plugins-empty">{t("plugins.store.stale", { reason: reason() })}</div>
               </Show>
-            </Show>
-          </div>
-          <div class="settings-section">
-            <div class="plugins-section-head">
-              <div class="settings-section-title">{t("plugins.installed")}</div>
-              <Show when={import.meta.env.DEV}>
-                <button class="btn-secondary" disabled={busy()} onClick={devLoad}>{t("plugins.devLoad")}</button>
-              </Show>
-            </div>
-            <PluginList
-              plugins={plugins()}
-              busy={busy() || store.busy()}
-              onToggle={(p, enabled) => act(async () => {
-                if (!enabled && openId() === p.id) setOpenId(null);
-                await pluginSetEnabled(p.id, enabled);
-              })}
-              onTest={(p) => setOpenId(p.id)}
-              onRemove={remove}
-            />
-          </div>
+            </Match>
+            <Match when={store.error()}>
+              <div class="plugins-empty plugins-warn">{t("plugins.store.failed", { reason: reason() })}</div>
+            </Match>
+            <Match when={store.entries() === null}>
+              <div class="plugins-empty">{t("plugins.store.loading")}</div>
+            </Match>
+          </Switch>
         </div>
-        </>}>
-          {(e) => (
-            <PluginDetail entry={e()} installed={plugins().find((p) => p.id === e().id)} appVersion={store.appVersion()}
-                          progress={store.progress(e().id)} busy={store.busy()}
-                          onBack={() => setDetailId(null)} onInstall={() => void store.install(e())} />
-          )}
-        </Show>
-      }>
-        {(p) => <PluginHarness plugin={p()} onBack={() => setOpenId(null)} />}
+      </>}>
+        {(l) => (
+          <PluginDetail listing={l()} appVersion={store.appVersion()} progress={store.progress(l().id)} busy={busy()}
+                        onBack={() => setDetailId(null)} onInstall={() => install(l())} onRemove={() => void remove(l())} />
+        )}
       </Show>
     </div>
   );

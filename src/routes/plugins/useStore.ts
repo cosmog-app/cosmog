@@ -1,4 +1,5 @@
 // Store state for the Plugins view: the catalog, this app's version, and the running install.
+// The last catalog is cached so the page opens filled in; a fresh copy loads behind it.
 
 import { createResource, createSignal, onCleanup } from "solid-js";
 import { onInstallProgress, pluginInstall, pluginStoreList } from "../../api/plugins";
@@ -9,12 +10,50 @@ import type { StoreEntry } from "../../types";
 
 const appVersion = () => import("@tauri-apps/api/app").then((m) => m.getVersion()).catch(() => null);
 
+// Display only: installs re-read the catalog in Rust and check signatures there.
+const CACHE_KEY = "cosmog.pluginStore.v1";
+const STALE_MS = 10 * 60_000;
+
+interface Cached { at: number; entries: StoreEntry[] }
+
+function readCache(): Cached | null {
+  try {
+    const c = JSON.parse(localStorage.getItem(CACHE_KEY) ?? "null") as Cached | null;
+    return c && Array.isArray(c.entries) && typeof c.at === "number" ? c : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(c: Cached) {
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(c)); } catch { /* storage full or blocked */ }
+}
+
 export function usePluginStore() {
-  // Not fetched until the view asks: opening the app never contacts GitHub.
-  const [wanted, setWanted] = createSignal(false);
-  const [entries, { refetch }] = createResource(wanted, () => pluginStoreList());
+  const cached = readCache();
+  const [entries, setEntries] = createSignal<StoreEntry[] | null>(cached?.entries ?? null);
+  const [fetchedAt, setFetchedAt] = createSignal(cached?.at ?? 0);
+  const [loading, setLoading] = createSignal(false);
+  const [error, setError] = createSignal<unknown>(null);
   const [version] = createResource(appVersion);
   const [installing, setInstalling] = createSignal<{ id: string; pct: number } | null>(null);
+
+  async function load() {
+    if (loading()) return;
+    setLoading(true);
+    try {
+      const list = await pluginStoreList();
+      const at = Date.now();
+      setEntries(list);
+      setFetchedAt(at);
+      setError(null);
+      writeCache({ at, entries: list });
+    } catch (e) {
+      setError(e);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   const unlisten = onInstallProgress((p) => {
     const cur = installing();
@@ -39,11 +78,12 @@ export function usePluginStore() {
   }
 
   return {
-    /** First call fetches; later calls refetch. */
-    load: () => (wanted() ? void refetch() : setWanted(true)),
-    /** Fetch once, the first time the view is shown. */
-    ensure: () => { if (!wanted()) setWanted(true); },
+    load,
+    /** Called whenever the view shows: refreshes in the background once the cached copy is stale. */
+    ensure: () => { if (Date.now() - fetchedAt() > STALE_MS) void load(); },
     entries,
+    loading,
+    error,
     appVersion: () => version() ?? null,
     progress: (id: string) => (installing()?.id === id ? installing()!.pct : null),
     busy: () => installing() !== null,
