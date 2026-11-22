@@ -265,7 +265,7 @@ Files on disk: `<app_data>/plugins/<id>/<version>/`, drafts in `<app_data>/plugi
 
 | Path | Purpose |
 | --- | --- |
-| `src/routes/Plugins.tsx` + `src/routes/plugins/` | Catalog, installed list, dev load, protocol test page (dev) |
+| `src/routes/Plugins.tsx` + `src/routes/plugins/` | One list from the cached catalog plus installs: Install, Update, Uninstall |
 | `src/plugins/broker.ts` | One broker per iframe: frame identity, request ids, timeouts, size caps |
 | `src/plugins/PluginFrame.tsx` | Creates the sandboxed iframe, wires the broker |
 | `src/plugins/PluginEditor.tsx` | Full-window editor for one document: Save, close guard, draft restore, conflict dialog |
@@ -364,10 +364,12 @@ dependencies.
 ### How to run the manual matrix
 
 1. `npm run tauri dev` on the platform under test.
-2. Plugins (sidebar, beta) > Load unpacked > pick `src-tauri/tests/fixtures/plugins/hello`.
-3. Open. The plugin page lists every check; the toast says `Sandbox: N/N checks passed`.
-4. Click Load sample doc, type in the plugin's text box (dirty), press Ctrl+S inside it (`shell.save`
-   in the log), Serialize, 50 MB round trip.
+2. Load the fixture from the devtools console (debug builds only, there is no button):
+   `window.__TAURI_INTERNALS__.invoke("plugin_dev_load", { path: "<repo>/src-tauri/tests/fixtures/plugins/hello" })`,
+   then open the Plugins view so the list refreshes.
+3. In the bucket browser, New file > Hello file, then open it. The plugin lists every check; the toast
+   says `Sandbox: N/N checks passed`.
+4. Type in the plugin's text box (dirty dot), press Ctrl+S inside it (saves), close (Save / Don't save prompt).
 5. Click "Try navigating this frame to example.com": the frame must stay on the plugin (app CSP
    `frame-src`).
 6. Record the table below, including the info rows (origin, `webkit.messageHandlers`,

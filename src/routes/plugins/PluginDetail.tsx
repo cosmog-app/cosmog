@@ -2,24 +2,23 @@
 
 import { For, Show } from "solid-js";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import type { InstalledPlugin, StoreEntry } from "../../types";
 import { formatBytes } from "../../utils/fmt";
 import { IconBack, IconLink } from "../../utils/icons";
 import { t } from "../../i18n";
 import { PluginIcon } from "./PluginIcon";
 import { InstallButton } from "./InstallButton";
-import { storeStatus } from "./storeStatus";
+import { listingStatus, type Listing } from "./listing";
 
 export function PluginDetail(props: {
-  entry: StoreEntry;
-  installed: InstalledPlugin | undefined;
+  listing: Listing;
   appVersion: string | null;
   progress: number | null;
   busy: boolean;
   onBack: () => void;
   onInstall: () => void;
+  onRemove: () => void;
 }) {
-  const e = () => props.entry;
+  const e = () => props.listing;
   const paragraphs = () => (e().description ?? "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const types = () => e().fileTypes.map((f) => f.ext).join(", ");
   const released = () => {
@@ -49,12 +48,13 @@ export function PluginDetail(props: {
             <span class="pstore-hero-meta">
               v{e().version}
               <Show when={e().author}>{(a) => <> · {t("plugins.detail.author", { author: a() })}</>}</Show>
-              <Show when={props.installed}>{(p) => <> · {t("plugins.detail.installedVersion", { version: p().version })}</>}</Show>
+              <Show when={e().installed}>{(p) => <> · {t("plugins.detail.installedVersion", { version: p().version })}</>}</Show>
             </span>
           </div>
           <div class="pstore-hero-action">
-            <InstallButton status={storeStatus(e(), props.installed, props.appVersion)} version={e().version}
-                           progress={props.progress} blocked={props.busy} onInstall={props.onInstall} />
+            <InstallButton status={listingStatus(e(), props.appVersion)} version={e().version} installed={!!e().installed}
+                           progress={props.progress} blocked={props.busy} full
+                           onInstall={props.onInstall} onRemove={props.onRemove} />
           </div>
         </div>
 
@@ -82,7 +82,7 @@ export function PluginDetail(props: {
             <dl class="pstore-facts">
               <dt>{t("plugins.detail.version")}</dt><dd>{e().version}</dd>
               <Show when={released()}>{(d) => <><dt>{t("plugins.detail.released")}</dt><dd>{d()}</dd></>}</Show>
-              <dt>{t("plugins.detail.size")}</dt><dd>{formatBytes(e().download.size)}</dd>
+              <Show when={e().size}>{(s) => <><dt>{t("plugins.detail.size")}</dt><dd>{formatBytes(s())}</dd></>}</Show>
               <Show when={types()}><dt>{t("plugins.detail.opens")}</dt><dd>{types()}</dd></Show>
               <Show when={e().license}>{(l) => <><dt>{t("plugins.detail.license")}</dt><dd>{l()}</dd></>}</Show>
             </dl>

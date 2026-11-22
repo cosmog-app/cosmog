@@ -655,4 +655,9 @@ const MIGRATIONS: &[Migration] = &[
         // Plugin workspaces were dropped before release; plugins open files from the browser.
         sql: "DROP TABLE IF EXISTS plugin_workspaces;",
     },
+    Migration {
+        version: 25,
+        // The enable switch is gone from the UI; nothing may stay hidden behind it.
+        sql: "UPDATE plugins SET enabled = 1;",
+    },
 ];
