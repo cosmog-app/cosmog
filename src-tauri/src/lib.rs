@@ -281,6 +281,7 @@ pub fn run() {
                 }
 
                 let db = Db::open(&db_path).await.expect("open db");
+                plugin_registry.sweep_staging().await;
                 if let Err(e) = plugin_registry.reload(&db).await {
                     tracing::warn!("plugin registry load failed: {e}");
                 }

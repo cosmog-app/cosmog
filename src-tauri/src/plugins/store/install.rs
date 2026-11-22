@@ -3,7 +3,7 @@
 //! The previous store version stays on disk for rollback; anything older is removed.
 
 use std::io::{Cursor, Read};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use base64::Engine;
 
@@ -12,7 +12,7 @@ use crate::db::Db;
 use crate::error::{AppError, AppResult};
 use crate::plugins::dev::{MAX_FILES, MAX_TOTAL_BYTES};
 use crate::plugins::manifest::{parse_semver, safe_rel_path, Manifest, Platform};
-use crate::plugins::{plugin_dir, PluginRegistry};
+use crate::plugins::{plugin_dir, PluginRegistry, Staging};
 
 use super::index::StoreEntry;
 use super::keys::{self, TrustedKey};
@@ -119,25 +119,15 @@ pub async fn install_package(
 
     let root = registry.root().to_path_buf();
     tokio::fs::create_dir_all(&root).await?;
-    let staging: PathBuf = root.join(format!(".staging-{}", uuid::Uuid::new_v4()));
-    let st = staging.clone();
-    let unpacked = tokio::task::spawn_blocking(move || {
+    let staging = Staging::new(&root);
+    let st = staging.path().to_path_buf();
+    tokio::task::spawn_blocking(move || {
         std::fs::create_dir_all(&st)?;
         unpack(&data, &st)
     })
     .await
-    .map_err(|e| AppError::Internal(format!("unpack task: {e}")))?;
-    let manifest = match unpacked {
-        Ok(()) => checked_manifest(&staging, entry, app_version).await,
-        Err(e) => Err(e),
-    };
-    let manifest = match manifest {
-        Ok(m) => m,
-        Err(e) => {
-            let _ = tokio::fs::remove_dir_all(&staging).await;
-            return Err(e);
-        }
-    };
+    .map_err(|e| AppError::Internal(format!("unpack task: {e}")))??;
+    let manifest = checked_manifest(staging.path(), entry, app_version).await?;
 
     // Updating keeps the outgoing version; reinstalling the same one keeps whatever was kept before.
     let prev = match registry.get(&entry.id).filter(|p| p.source == "registry") {
@@ -147,19 +137,24 @@ pub async fn install_package(
     };
     let id_dir = root.join(&entry.id);
     tokio::fs::create_dir_all(&id_dir).await?;
-    let mut keep = vec![];
-    keep.extend(prev.as_deref());
-    prune(&id_dir, &keep).await?;
     let dest = plugin_dir(&root, &entry.id, &entry.version);
-    if let Err(e) = tokio::fs::rename(&staging, &dest).await {
-        let _ = tokio::fs::remove_dir_all(&staging).await;
-        return Err(e.into());
+    // Reinstalling the same version repairs it; any other installed version is left alone here.
+    if tokio::fs::try_exists(&dest).await? {
+        tokio::fs::remove_dir_all(&dest).await?;
     }
+    tokio::fs::rename(staging.path(), &dest).await?;
+    staging.keep();
 
     let json = serde_json::to_string(&manifest).map_err(|e| AppError::Internal(e.to_string()))?;
+    let keep: Vec<String> = [Some(entry.version.clone()), prev.clone()].into_iter().flatten().collect();
     let signed = SignedInstall { key_id: entry.download.key_id.clone(), sha256, prev_version: prev };
     db.plugin_upsert_signed(&manifest.id, &manifest.version, &json, signed).await?;
     registry.reload(db).await?;
+    // Old versions go last, once the DB points at the new one: a failure only leaves extra files.
+    let keep: Vec<&str> = keep.iter().map(String::as_str).collect();
+    if let Err(e) = prune(&id_dir, &keep).await {
+        tracing::warn!("plugin {}: old versions not removed: {e}", entry.id);
+    }
     Ok(manifest)
 }
 
