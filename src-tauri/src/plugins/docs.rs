@@ -86,6 +86,10 @@ pub async fn write(
     }
     let store = state.store_for(account_id).await?;
     let (data, md) = crate::commands::objects::encrypt_for_bucket(state, account_id, bucket, data).await?;
+    // Reads cap the stored size, so age's overhead must fit too or the save could never reopen.
+    if data.len() > MAX_DOC_BYTES {
+        return Err(too_big(data.len()));
+    }
     let etag = store.put_object_bytes_if(bucket, key, mime, data, md, cond).await?;
     // Keep the browser listing fresh; a failed refresh only means a stale row until next sync.
     match store.head_object(bucket, key).await {
