@@ -32,7 +32,6 @@ let running = false;
 async function updatePlugins() {
   if (!autoUpdate() || running) return;
   running = true;
-  let changed = false;
   try {
     await refreshPlugins();
     const installed = pluginsInstalled().filter((p) => p.source === "registry");
@@ -46,7 +45,8 @@ async function updatePlugins() {
       setUpdatingPlugin(e.id);
       try {
         const m = await pluginInstall(e.id);
-        changed = true;
+        // Before the flag clears: an open must never see the old version once its files are gone.
+        await refreshPlugins();
         toast.ok(t("plugins.update.done", { name: m.manifest.name, version: m.version }));
       } catch (err) {
         console.warn(`plugin auto-update ${e.id} failed`, err);
@@ -59,12 +59,15 @@ async function updatePlugins() {
     console.warn("plugin auto-update check failed", err);
   } finally {
     running = false;
-    if (changed) await refreshPlugins();
   }
 }
 
+let started = false;
+
+/** Once per app run; MainApp can remount (error reset, last account removed and re-added). */
 export function startPluginAutoUpdate() {
-  if (!isDesktopShell) return;
+  if (!isDesktopShell || started) return;
+  started = true;
   setAutoUpdate(getPref(PREF, true));
   window.setTimeout(() => void updatePlugins(), FIRST_CHECK_MS);
   window.setInterval(() => void updatePlugins(), EVERY_MS);
