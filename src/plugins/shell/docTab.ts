@@ -101,7 +101,10 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
       if (broker !== b) return;
       await b.load({ name: name(), mime, bytes, readOnly: false });
       // Best effort: without it the close check relies on the plugin's flag alone.
-      savedHash = await b.serialize().then(digest).catch(() => null);
+      const hash = await b.serialize().then(digest).catch(() => null);
+      // Closed while loading: starting drafts now would leak a timer on a dead tab.
+      if (broker !== b) return;
+      savedHash = hash;
       setPluginDirty(false);
       setRestored(fromDraft);
       setStatus("ready");
@@ -176,8 +179,10 @@ export function createDocTab(plugin: InstalledPlugin, initial: PluginDocRef, mim
         } else {
           target = { ...target, key: conflictCopyKey(target.key) };
           etag = await write(bytes, target, null);
-          await pluginDraftClear(plugin.id, ref());
+          // The tab follows the copy before anything else can fail: its etag is the copy's now.
+          const original = ref();
           setRef(target);
+          await pluginDraftClear(plugin.id, original).catch(() => {});
         }
       }
       b.saved();
