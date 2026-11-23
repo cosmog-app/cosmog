@@ -5,6 +5,8 @@ import { createSignal } from "solid-js";
 import type { InstalledPlugin, PluginDocRef } from "../types";
 import { pluginList } from "../api/plugins";
 import { isDesktopShell } from "../utils/platform";
+import { toast } from "./toast";
+import { t } from "../i18n";
 
 const [installed, setInstalled] = createSignal<InstalledPlugin[]>([]);
 export const pluginsInstalled = installed;
@@ -38,10 +40,19 @@ export interface OpenDoc {
 const [openDoc, setOpenDoc] = createSignal<OpenDoc | null>(null);
 export { openDoc };
 
+// Set while a background update swaps a plugin's files; an editor opened then would load the old
+// version and lose its assets mid-session.
+const [updatingPlugin, setUpdatingPlugin] = createSignal<string | null>(null);
+export { setUpdatingPlugin };
+
 /** Opens `key` in the plugin that handles it; false when none does. */
 export function openWithPlugin(ref: PluginDocRef, onSaved?: () => void): boolean {
   const plugin = pluginForKey(ref.key);
   if (!plugin) return false;
+  if (updatingPlugin() === plugin.id) {
+    toast.info(t("plugins.updating.wait", { name: plugin.manifest.name }));
+    return true;
+  }
   setOpenDoc({ plugin, ref, mime: mimeForKey(plugin, ref.key), onSaved });
   return true;
 }
