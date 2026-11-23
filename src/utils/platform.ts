@@ -20,6 +20,8 @@ function detect(): DesktopOs {
 }
 
 export const desktopOs: DesktopOs = override() ?? detect();
+/** The OS actually running, ignoring the titlebar preview override. */
+export const realOs: DesktopOs = detect();
 
 // Android UA also says "Linux"; tablets are not "mobile" by width but have no window controls.
 export const isAndroid = /Android/.test(navigator.userAgent);
