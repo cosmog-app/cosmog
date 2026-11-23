@@ -43,7 +43,7 @@ export { openDoc };
 // Set while a background update swaps a plugin's files; an editor opened then would load the old
 // version and lose its assets mid-session.
 const [updatingPlugin, setUpdatingPlugin] = createSignal<string | null>(null);
-export { setUpdatingPlugin };
+export { updatingPlugin, setUpdatingPlugin };
 
 /** Opens `key` in the plugin that handles it; false when none does. */
 export function openWithPlugin(ref: PluginDocRef, onSaved?: () => void): boolean {

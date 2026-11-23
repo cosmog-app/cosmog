@@ -33,6 +33,7 @@ pub async fn plugin_remove(
     registry: State<'_, PluginRegistry>,
     id: String,
 ) -> AppResult<()> {
+    let _guard = crate::plugins::INSTALL_LOCK.lock().await;
     crate::plugins::dev::remove(&state.db, &registry, &id).await
 }
 
@@ -44,6 +45,7 @@ pub async fn plugin_dev_load(
     registry: State<'_, PluginRegistry>,
     path: String,
 ) -> AppResult<InstalledPlugin> {
+    let _guard = crate::plugins::INSTALL_LOCK.lock().await;
     let m = crate::plugins::dev::load_unpacked(
         &state.db,
         &registry,
