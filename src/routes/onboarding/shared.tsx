@@ -60,6 +60,8 @@ export function LabeledField(props: {
   disabled?: boolean;
   maxLength?: number;
   error?: string;
+  /** Muted help under the field; an error replaces it. */
+  hint?: string;
 }) {
   return (
     <div>
@@ -93,7 +95,7 @@ export function LabeledField(props: {
           onInput={(e) => props.onInput(e.currentTarget.value)}
         />
       </Show>
-      <Show when={props.error}>
+      <Show when={props.error} fallback={<Show when={props.hint}><div class="field-note">{props.hint}</div></Show>}>
         <div class="field-hint">{props.error}</div>
       </Show>
     </div>

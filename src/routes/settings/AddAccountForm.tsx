@@ -7,7 +7,7 @@ import { toast } from "../../state/toast";
 import { t } from "../../i18n";
 import { bumpBucketsRefresh, bumpAccountsRefresh } from "../../state/app";
 import { PROVIDERS, PICKABLE_PROVIDERS, type ProviderDef, detectProvider } from "../../providers";
-import { regionFromEndpoint } from "../../utils/regionFromEndpoint";
+import { regionFromEndpoint, regionIsEditable, resolveRegion } from "../../utils/regionFromEndpoint";
 import { SecretInput } from "../../utils/SecretInput";
 import {
   accountNameMaxLength,
@@ -103,9 +103,11 @@ export function AddAccountForm(props: { onDone: () => void; onCancel: () => void
       const trimmedName = f.name.trim();
       // Keep a stored (possibly auto-detected) region unless the endpoint moved.
       const endpointChanged = (f.endpoint ?? null) !== (props.editing!.endpoint ?? null);
-      const region = endpointChanged
-        ? regionFromEndpoint(provider(), f.endpoint ?? "") ?? f.region
-        : f.region;
+      const region = regionIsEditable(provider())
+        ? resolveRegion(provider(), f.endpoint ?? "", f.region)
+        : endpointChanged
+          ? regionFromEndpoint(provider(), f.endpoint ?? "") ?? f.region
+          : f.region;
       try {
         await updateAccount(props.editing!.id, {
           name: trimmedName,
@@ -136,7 +138,7 @@ export function AddAccountForm(props: { onDone: () => void; onCancel: () => void
       const acct = await addAccount({
         ...f,
         name: f.name.trim(),
-        region: regionFromEndpoint(provider(), f.endpoint ?? ""),
+        region: resolveRegion(provider(), f.endpoint ?? "", f.region),
       });
       bumpAccountsRefresh();
       bumpBucketsRefresh();
@@ -197,6 +199,19 @@ export function AddAccountForm(props: { onDone: () => void; onCancel: () => void
               disabled={busy()}
             />
             <Show when={errors().endpoint}><div class="field-hint">{errors().endpoint}</div></Show>
+          </div>
+        </Show>
+        <Show when={regionIsEditable(provider())}>
+          <div>
+            <input
+              class="field"
+              placeholder={t("settings.account.regionPlaceholder")}
+              aria-label={t("settings.account.region")}
+              value={form().region ?? ""}
+              onInput={(e) => set("region", e.currentTarget.value.trim() || undefined)}
+              disabled={busy()}
+            />
+            <div class="field-note">{t("settings.account.regionHint")}</div>
           </div>
         </Show>
         <div>

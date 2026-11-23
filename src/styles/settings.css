@@ -93,6 +93,11 @@
   color: var(--red);
   margin-top: 4px;
 }
+.field-note {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
 
 /* Clear-data modal */
 .cd-modal {

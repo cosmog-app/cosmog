@@ -23,3 +23,13 @@ export function regionFromEndpoint(provider: ProviderDef, endpoint: string): str
 
   return provider.region || undefined;
 }
+
+/** Self-hosted servers pick their own region name (MinIO "us-east-1", Garage "garage") and the
+ *  endpoint URL doesn't say which, so the user types it. */
+export const regionIsEditable = (provider: ProviderDef) => provider.id === "s3" || provider.id === "minio";
+
+/** Region to store: what the user typed for self-hosted providers, else derived from the endpoint. */
+export function resolveRegion(provider: ProviderDef, endpoint: string, typed?: string): string | undefined {
+  if (regionIsEditable(provider)) return typed?.trim() || provider.region || undefined;
+  return regionFromEndpoint(provider, endpoint);
+}
