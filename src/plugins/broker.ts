@@ -4,7 +4,7 @@
 import type {
   InstalledPlugin, PluginDocLoad, PluginDocSerialized, PluginReply, PluginToastKind,
 } from "../types";
-import { desktopOs, isAndroid } from "../utils/platform";
+import { isAndroid, realOs } from "../utils/platform";
 
 export const PLUGIN_API_VERSIONS = [1];
 /** Per-message payload cap, both directions. */
@@ -16,7 +16,7 @@ const TOAST_MIN_GAP_MS = 2_000;
 const TOAST_MAX_CHARS = 200;
 
 // Windows (WebView2) and Android serve custom schemes as http://<scheme>.localhost.
-const ORIGIN = desktopOs === "windows" || isAndroid ? "http://cosmog-plugin.localhost" : "cosmog-plugin://localhost";
+const ORIGIN = realOs === "windows" || isAndroid ? "http://cosmog-plugin.localhost" : "cosmog-plugin://localhost";
 
 export function pluginEntryUrl(p: InstalledPlugin): string {
   const parts = [p.id, p.version, ...p.manifest.entry.split("/")].map(encodeURIComponent);
@@ -127,7 +127,10 @@ export function createBroker(frame: HTMLIFrameElement, ev: BrokerEvents): Broker
         return;
       }
       default:
-        // Unknown methods are dropped, not answered: v1 plugins send events only.
+        // v1 plugins send events only; a request (it has an id) gets an error so it never hangs.
+        if (typeof m.id === "string") {
+          post({ id: m.id, error: { code: "unknown_method", message: `unknown method ${String(m.method)}` } });
+        }
         return;
     }
   };
