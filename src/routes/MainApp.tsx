@@ -47,6 +47,7 @@ import { FolderResumeBanner } from "./mainapp/FolderResumeBanner";
 import { watchFolderJobNotifications } from "./mainapp/folderJobNotify";
 import { useCloseGuard } from "./mainapp/closeGuard";
 import { openDoc, refreshPlugins } from "../state/plugins";
+import { startPluginAutoUpdate } from "../state/pluginUpdates";
 import { PluginEditor } from "../plugins/PluginEditor";
 import { startFolderJobsPoller, movingFolderJobs } from "../state/folderJobs";
 import { isMobile } from "../utils/breakpoint";
@@ -280,6 +281,7 @@ export default function MainApp() {
   useCloseGuard();
   // The browser needs to know which files a plugin opens before the Plugins view is visited.
   void refreshPlugins();
+  startPluginAutoUpdate();
   // A folder job counts as one active item.
   const sidebarCount = () => activeCount() + movingFolderJobs().length;
 

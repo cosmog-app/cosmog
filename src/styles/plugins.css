@@ -35,6 +35,12 @@
 
 .plugins-refresh { margin-left: auto; }
 
+.plugins-auto { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+.plugins-auto input { margin-top: 2px; accent-color: var(--accent); }
+.plugins-auto-text { display: flex; flex-direction: column; gap: 2px; }
+.plugins-auto-label { color: var(--text); font-size: 13px; }
+.plugins-auto-hint { color: var(--text-muted); font-size: 12px; }
+
 .plugins-empty { color: var(--text-muted); font-size: 12.5px; padding: 12px 0; }
 .plugins-warn { color: var(--warn); }
 
