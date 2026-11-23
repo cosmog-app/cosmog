@@ -13,11 +13,12 @@ die() { echo "Error: $*" >&2; exit 1; }
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 git fetch --tags --quiet origin 2>/dev/null || echo "Warning: could not fetch tags from origin"
 
-LAST_TAG="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+# Release candidates sort before their final release (v1.2.0-rc.1 < v1.2.0).
+LAST_TAG="$(git -c versionsort.suffix=-rc tag --list 'v*' --sort=-v:refname | head -1)"
 CUR_VER="$(sed -n 's/.*"version": "\([^"]*\)".*/\1/p' package.json | head -1)"
 
 # Suggest next patch from the newest tag (or current version).
-BASE="${LAST_TAG#v}"; BASE="${BASE:-$CUR_VER}"
+BASE="${LAST_TAG#v}"; BASE="${BASE%%-*}"; BASE="${BASE:-$CUR_VER}"
 IFS=. read -r MA MI PA <<<"$BASE"
 SUGGEST="$MA.$MI.$((PA + 1))"
 
@@ -31,12 +32,16 @@ echo
 read -r -p "New version [$SUGGEST]: " INPUT
 SEMVER="${INPUT:-$SUGGEST}"
 SEMVER="${SEMVER#v}"
-[[ "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "version must be X.Y.Z, got '$SEMVER'"
+[[ "$SEMVER" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || die "version must be X.Y.Z or X.Y.Z-rc.N, got '$SEMVER'"
 TAG="v$SEMVER"
+# Files keep plain X.Y.Z: the Windows MSI refuses pre-release labels. CI marks -rc tags pre-release.
+APP_VER="${SEMVER%%-*}"
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
+# Numeric sort key that puts X.Y.Z after its rcs: rc.N -> X.Y.Z.0.N, final -> X.Y.Z.1.0.
+vkey() { local v="$1"; [[ "$v" == *-rc.* ]] && echo "${v%%-rc.*}.0.${v##*-rc.}" || echo "$v.1.0"; }
 if [[ -n "$LAST_TAG" ]]; then
-  NEWEST="$(printf '%s\n%s\n' "${LAST_TAG#v}" "$SEMVER" | sort -V | tail -1)"
-  [[ "$NEWEST" == "$SEMVER" ]] || die "$SEMVER is not newer than $LAST_TAG"
+  NEWEST="$(printf '%s\n%s\n' "$(vkey "${LAST_TAG#v}")" "$(vkey "$SEMVER")" | sort -V | tail -1)"
+  [[ "$NEWEST" == "$(vkey "$SEMVER")" && "${LAST_TAG#v}" != "$SEMVER" ]] || die "$SEMVER is not newer than $LAST_TAG"
 fi
 
 # ── description ──────────────────────────────────────────────────────────────
@@ -52,7 +57,7 @@ done
 # ── summary ──────────────────────────────────────────────────────────────────
 echo
 echo "────────────────────────────────────────────"
-echo "  Version:  $(bold "$SEMVER")   Tag: $(bold "$TAG")"
+echo "  Version:  $(bold "$APP_VER")   Tag: $(bold "$TAG")$([[ "$SEMVER" == *-rc.* ]] && echo "   (pre-release)")"
 if [[ -n "$DESC" ]]; then
   echo "  Description:"
   sed 's/^/    /' <<<"$DESC"
@@ -71,14 +76,15 @@ read -r -p "Bump, tag and push $TAG to origin? [y/N] " OK
 [[ "$OK" =~ ^[Yy]$ ]] || { echo "Aborted, nothing changed."; exit 0; }
 
 # ── bump ─────────────────────────────────────────────────────────────────────
-sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$SEMVER\"/" package.json
-sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$SEMVER\"/" src-tauri/tauri.conf.json
+sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$APP_VER\"/" package.json
+sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$APP_VER\"/" src-tauri/tauri.conf.json
 # only the first [package] version line
-sed -i "0,/^version = \"[^\"]*\"/{s/^version = \"[^\"]*\"/version = \"$SEMVER\"/}" src-tauri/Cargo.toml
+sed -i "0,/^version = \"[^\"]*\"/{s/^version = \"[^\"]*\"/version = \"$APP_VER\"/}" src-tauri/Cargo.toml
 cargo update --manifest-path src-tauri/Cargo.toml --package cosmog 2>/dev/null || true
 
 git add package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml src-tauri/Cargo.lock
-git commit -m "chore: bump version to $TAG"
+# A later rc, or the final after its rcs, may find the version already bumped.
+git diff --cached --quiet || git commit -m "chore: bump version to $TAG"
 
 # Annotated tag carries the description; CI reads it into the release notes.
 if [[ -n "$DESC" ]]; then
