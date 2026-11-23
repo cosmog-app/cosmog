@@ -229,7 +229,7 @@ keeps its own copy of the protocol types in `src/types/index.ts`; `apiVersion` k
 | `dev.rs` | Load unpacked from a folder (staging dir, no symlinks, size caps), remove |
 | `manifest.rs` | Parse + validate manifest |
 | `scheme.rs` | `cosmog-plugin` async URI scheme: path resolution, traversal guard, MIME, CSP header |
-| `store/http.rs` | Phase 3: HTTPS GET on hyper + rustls, redirects (GitHub assets), size cap, idle timeout |
+| `store/http.rs` | Phase 3: HTTPS GET on hyper + rustls, through the Settings proxy (`HTTPS_PROXY`/`NO_PROXY`, CONNECT tunnel), redirects (GitHub assets), size cap, idle timeout |
 | `store/index.rs` | Phase 3: catalog URL, parse + sanitize |
 | `store/keys.rs` | Phase 3: `TRUSTED_KEYS`, statement, sha256, ed25519 verify |
 | `store/install.rs` | Phase 3: check package, safe unzip, manifest match, swap, keep previous version |
