@@ -100,7 +100,9 @@ pub async fn plugin_template(registry: State<'_, PluginRegistry>, plugin_id: Str
     let Some(rel) = ft.template.as_deref() else {
         return Ok(Response::new(Vec::new()));
     };
-    let path = crate::plugins::scheme::resolve(registry.root(), &registry, &format!("/{}/{}/{rel}", p.id, p.version))
+    // resolve() URL-decodes, and manifest paths may contain '%': encode each segment first.
+    let enc: Vec<_> = rel.split('/').map(urlencoding::encode).collect();
+    let path = crate::plugins::scheme::resolve(registry.root(), &registry, &format!("/{}/{}/{}", p.id, p.version, enc.join("/")))
         .map_err(|s| AppError::NotFound(format!("template {rel}: {s}")))?;
     Ok(Response::new(tokio::fs::read(path).await?))
 }
