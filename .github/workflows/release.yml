@@ -42,7 +42,10 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          PREV=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          # A final release lists everything since the last final, not since its own rcs.
+          EXCLUDE=()
+          [[ "${GITHUB_REF_NAME}" != *-* ]] && EXCLUDE=(--exclude '*-*')
+          PREV=$(git describe --tags --abbrev=0 "${EXCLUDE[@]}" HEAD^ 2>/dev/null || echo "")
           if [ -n "$PREV" ]; then
             BODY=$(git log --pretty=format:"- %s" "${PREV}..HEAD")
           else
