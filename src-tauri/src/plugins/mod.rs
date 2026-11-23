@@ -61,6 +61,10 @@ pub fn plugin_dir(root: &Path, id: &str, version: &str) -> PathBuf {
 
 const STAGING_PREFIX: &str = ".staging-";
 
+/// One install, update, dev load or removal at a time: a removal racing a background update
+/// could otherwise bring the plugin back or delete files the update just moved in.
+pub static INSTALL_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// An install's temp dir under the plugin root; removed on drop unless `keep` was called.
 pub(crate) struct Staging {
     path: PathBuf,

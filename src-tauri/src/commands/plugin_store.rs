@@ -9,7 +9,6 @@ use crate::plugins::{InstalledPlugin, PluginRegistry};
 use crate::state::AppState;
 
 /// One install at a time: two would race on the same plugin dir.
-static INSTALL_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[tracing::instrument(skip_all, err)]
 #[tauri::command]
@@ -35,7 +34,7 @@ pub async fn plugin_install(
     registry: State<'_, PluginRegistry>,
     id: String,
 ) -> AppResult<InstalledPlugin> {
-    let _guard = INSTALL_LOCK.lock().await;
+    let _guard = crate::plugins::INSTALL_LOCK.lock().await;
     let entry = index::fetch()
         .await?
         .into_iter()

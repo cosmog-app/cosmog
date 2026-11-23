@@ -1,7 +1,7 @@
 import { createEffect, createSignal, Match, on, Show, Switch } from "solid-js";
 import { currentView } from "../state/app";
 import { pluginRemove } from "../api/plugins";
-import { pluginsInstalled, refreshPlugins } from "../state/plugins";
+import { pluginsInstalled, refreshPlugins, updatingPlugin } from "../state/plugins";
 import { IconPlugin, IconRefresh } from "../utils/icons";
 import { toast } from "../state/toast";
 import { confirmDialog } from "../state/confirm";
@@ -19,7 +19,8 @@ export default function Plugins() {
   const [detailId, setDetailId] = createSignal<string | null>(null);
   const items = () => listings(store.entries() ?? [], pluginsInstalled());
   const detail = () => items().find((l) => l.id === detailId()) ?? null;
-  const busy = () => store.busy() || removing();
+  // A background update holds the install lock in Rust too; uninstall waits for it here.
+  const busy = () => store.busy() || removing() || updatingPlugin() !== null;
   const reason = () => parseWireError(store.error()).detail || String(store.error());
 
   // Views stay mounted from startup; only showing this one contacts the store.
