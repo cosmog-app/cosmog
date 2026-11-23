@@ -3,7 +3,7 @@ import { addAccount, testAccount, deleteAccount } from "../../api/accounts";
 import { errMsg } from "../../state/toast";
 import { t, tp } from "../../i18n";
 import { type ProviderDef } from "../../providers";
-import { regionFromEndpoint } from "../../utils/regionFromEndpoint";
+import { regionIsEditable, resolveRegion } from "../../utils/regionFromEndpoint";
 import {
   ACCOUNT_NAME_MAX_LENGTH,
   clampAccountName,
@@ -22,6 +22,7 @@ export function AccountSetupStep(props: {
   const isAws = () => props.provider.id === "aws";
   const [name, setName] = createSignal(props.provider.label);
   const [endpoint, setEndpoint] = createSignal(props.provider.endpoint);
+  const [region, setRegion] = createSignal(props.provider.region);
   const [accessKey, setAccessKey] = createSignal("");
   const [secretKey, setSecretKey] = createSignal("");
   const [errors, setErrors] = createSignal<Record<string, string>>({});
@@ -78,7 +79,7 @@ export function AccountSetupStep(props: {
         name: name().trim(),
         protocol: "s3",
         endpoint: endpoint().trim() || undefined,
-        region: regionFromEndpoint(props.provider, endpoint().trim()),
+        region: resolveRegion(props.provider, endpoint().trim(), region()),
         access_key_id: accessKey().trim(),
         secret_access_key: secretKey().trim(),
         addressing_style: props.provider.addressing_style,
@@ -102,7 +103,7 @@ export function AccountSetupStep(props: {
         name: name().trim(),
         protocol: "s3",
         endpoint: endpoint().trim() || undefined,
-        region: regionFromEndpoint(props.provider, endpoint().trim()),
+        region: resolveRegion(props.provider, endpoint().trim(), region()),
         access_key_id: accessKey().trim(),
         secret_access_key: secretKey().trim(),
         addressing_style: props.provider.addressing_style,
@@ -165,6 +166,16 @@ export function AccountSetupStep(props: {
             value={endpoint()}
             error={errors().endpoint}
             onInput={(v) => { setEndpoint(v); clearError("endpoint"); }}
+            disabled={busy()}
+          />
+        </Show>
+        <Show when={regionIsEditable(props.provider)}>
+          <LabeledField
+            label={t("onboarding.field.region")}
+            placeholder={t("settings.account.regionPlaceholder")}
+            value={region()}
+            hint={t("settings.account.regionHint")}
+            onInput={(v) => setRegion(v)}
             disabled={busy()}
           />
         </Show>

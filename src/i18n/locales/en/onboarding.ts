@@ -9,6 +9,7 @@ export default {
   "onboarding.field.optional": "(optional)",
   "onboarding.field.endpoint": "Endpoint",
   "onboarding.field.accessKeyId": "Access Key ID",
+  "onboarding.field.region": "Region",
   "onboarding.field.secretAccessKey": "Secret Access Key",
   "onboarding.provider.title": "Choose a provider",
   "onboarding.provider.subtitle": "Connect any S3-compatible storage backend.",
