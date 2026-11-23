@@ -50,6 +50,16 @@ pub struct S3Store {
     cond_put_unsupported: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
+/// If-Match needs a quoted entity-tag; some providers return ETags without quotes, and a strict
+/// one compares the header literally (412 on every save).
+fn quoted_etag(etag: &str) -> String {
+    if etag.starts_with("W/") || (etag.len() >= 2 && etag.starts_with('"') && etag.ends_with('"')) {
+        etag.to_owned()
+    } else {
+        format!("\"{}\"", etag.trim_matches('"'))
+    }
+}
+
 impl S3Store {
     async fn put_bytes_once(
         &self,
@@ -67,7 +77,7 @@ impl S3Store {
             .content_type(content_type)
             .content_length(data.len() as i64);
         if let Some(c) = cond {
-            req = req.set_if_match(c.if_match.clone());
+            req = req.set_if_match(c.if_match.as_deref().map(quoted_etag));
             if c.if_none_match {
                 req = req.if_none_match("*");
             }
@@ -975,5 +985,18 @@ impl ObjectStore for S3Store {
         ctx: TransferCtx,
     ) -> AppResult<DownloadResult> {
         self.download(bucket, key, dest, opts, ctx).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::quoted_etag;
+
+    #[test]
+    fn if_match_is_always_a_quoted_entity_tag() {
+        assert_eq!(quoted_etag("\"abc\""), "\"abc\"");
+        assert_eq!(quoted_etag("abc"), "\"abc\"");
+        assert_eq!(quoted_etag("W/\"abc\""), "W/\"abc\"");
+        assert_eq!(quoted_etag("\"abc"), "\"abc\"");
     }
 }
