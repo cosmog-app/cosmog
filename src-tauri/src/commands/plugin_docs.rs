@@ -21,6 +21,10 @@ fn plugin(registry: &PluginRegistry, id: &str) -> AppResult<InstalledPlugin> {
 fn raw_body(req: &Request<'_>) -> AppResult<Vec<u8>> {
     match req.body() {
         InvokeBody::Raw(b) => Ok(b.clone()),
+        // Tauri's postMessage fallback (custom-protocol IPC blocked, or Android) sends bytes as JSON.
+        InvokeBody::Json(v @ serde_json::Value::Array(_)) => {
+            serde_json::from_value(v.clone()).map_err(|_| AppError::InvalidInput("expected a byte array body".into()))
+        }
         _ => Err(AppError::InvalidInput("expected a raw byte body".into())),
     }
 }

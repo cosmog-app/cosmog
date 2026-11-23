@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://api.github.com; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; frame-src cosmog-plugin: http://cosmog-plugin.localhost",
+      "csp": "default-src 'self'; connect-src 'self' ipc: http://ipc.localhost https://api.github.com; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data:; frame-src cosmog-plugin: http://cosmog-plugin.localhost",
       "dangerousDisableAssetCspModification": ["style-src"]
     }
   },
