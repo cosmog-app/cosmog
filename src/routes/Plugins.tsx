@@ -10,6 +10,7 @@ import { PluginDetail } from "./plugins/PluginDetail";
 import { StoreGrid } from "./plugins/StoreGrid";
 import { usePluginStore } from "./plugins/useStore";
 import { listings, type Listing } from "./plugins/listing";
+import { pluginAutoUpdate, setPluginAutoUpdate } from "../state/pluginUpdates";
 import { parseWireError } from "../utils/wireError";
 
 export default function Plugins() {
@@ -67,6 +68,14 @@ export default function Plugins() {
               <span class="plugins-intro-body">{t("plugins.intro.body")}</span>
             </div>
           </div>
+          <label class="plugins-auto">
+            <input type="checkbox" checked={pluginAutoUpdate()}
+                   onChange={(e) => setPluginAutoUpdate(e.currentTarget.checked)} />
+            <span class="plugins-auto-text">
+              <span class="plugins-auto-label">{t("plugins.autoUpdate")}</span>
+              <span class="plugins-auto-hint">{t("plugins.autoUpdate.hint")}</span>
+            </span>
+          </label>
           <Switch fallback={<div class="plugins-empty">{t("plugins.store.empty")}</div>}>
             <Match when={items().length > 0}>
               <StoreGrid items={items()} appVersion={store.appVersion()} progress={store.progress} busy={busy()}

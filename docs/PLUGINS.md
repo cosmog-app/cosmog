@@ -186,7 +186,10 @@ release workflow (`scripts/update-index.mjs`). One entry per plugin, latest vers
   asks for a newer app. Entries with a bad id, version or non-https download are skipped; icons that
   are not a PNG/SVG `data:` URI and links that are not https are dropped.
 - Icons are inlined as `data:` URIs, so the list needs no extra requests and the app CSP is unchanged.
-- Fetched by Rust only when the Plugins view opens (`plugin_store_list`). `plugin_install(id)` re-fetches
+- Fetched by Rust (`plugin_store_list`) when the Plugins view opens (the last copy is cached in
+  localStorage for display), and by auto-update (`src/state/pluginUpdates.ts`, on by default, a pref):
+  30 s after start, then every 6 h, it updates store installs that have a newer compatible version,
+  skipping a plugin whose document is open. `plugin_install(id)` re-fetches
   the catalog itself, so the frontend cannot point an install at another package. Progress events:
   `plugin-install-progress { id, done, total }`, at most one per percent.
 

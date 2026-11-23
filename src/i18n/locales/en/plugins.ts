@@ -6,6 +6,8 @@ export default {
   "plugins.intro.body": "Plugins run in a sandbox with no network and no access to your credentials. Cosmog does every read and write for them.",
   "plugins.incompatible": "Not available on this device",
   "plugins.store.refresh": "Refresh",
+  "plugins.autoUpdate": "Update plugins automatically",
+  "plugins.autoUpdate.hint": "Checks for signed updates when Cosmog starts and every few hours. A plugin with a file open updates later.",
   "plugins.store.loading": "Loading the plugin store...",
   "plugins.store.failed": "Could not load the plugin store: {reason}",
   "plugins.store.stale": "Could not check for new plugins: {reason}",
