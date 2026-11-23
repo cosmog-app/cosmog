@@ -84,7 +84,7 @@ base64 = "0.22"
 aws-lc-rs = "1"
 rustls = { version = "0.23", default-features = false, features = ["aws_lc_rs", "std", "tls12"] }
 hyper = "1"
-hyper-util = { version = "0.1", features = ["client-legacy", "http1", "tokio"] }
+hyper-util = { version = "0.1", features = ["client-legacy", "client-proxy", "http1", "tokio"] }
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "native-tokio", "tls12", "rustls-native-certs"] }
 http-body-util = "0.1"
 zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
