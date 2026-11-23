@@ -88,6 +88,8 @@ hyper-util = { version = "0.1", features = ["client-legacy", "client-proxy", "ht
 hyper-rustls = { version = "0.27", default-features = false, features = ["http1", "native-tokio", "tls12", "rustls-native-certs"] }
 http-body-util = "0.1"
 zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
+# zip's deflate needs a flate2 backend; Linux got one through GTK's deps, Windows has none.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
 
 # Pinch handling (src/pinch_linux.rs); both already come in through Tauri at these versions.
 [target.'cfg(target_os = "linux")'.dependencies]
