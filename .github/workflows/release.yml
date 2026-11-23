@@ -109,7 +109,8 @@ jobs:
           releaseName: 'Cosmog ${{ github.ref_name }}'
           releaseBody: "${{ steps.changelog.outputs.body }}"
           releaseDraft: false
-          prerelease: false
+          # v1.2.0-rc.1 and the like: off the "latest release" the in-app update check reads.
+          prerelease: ${{ contains(github.ref_name, '-') }}
           args: ${{ matrix.args }}
 
       # Tauri writes .DirIcon as an absolute symlink into the CI build dir, which
