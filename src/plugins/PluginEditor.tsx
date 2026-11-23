@@ -31,6 +31,12 @@ export function PluginEditor(props: { doc: OpenDoc }) {
   /** Asks Save / Don't save / Cancel when there are changes. False when the user cancelled. */
   async function close(): Promise<boolean> {
     if (tab.saving()) return false;
+    // A crashed plugin can't save; closing keeps its draft so the next open offers to restore it.
+    if (tab.status() === "error") {
+      tab.detach();
+      closeOpenDoc();
+      return true;
+    }
     if (await tab.hasChanges()) {
       const choice = await confirmDialog({
         title: t("plugins.shell.close.title", { name: tab.name() }),
@@ -47,6 +53,9 @@ export function PluginEditor(props: { doc: OpenDoc }) {
       } else {
         await tab.discard();
       }
+    } else {
+      // Undone back to the saved state: a draft from the dirty moments must not come back.
+      await tab.discard();
     }
     closeOpenDoc();
     return true;
