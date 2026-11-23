@@ -60,7 +60,12 @@ opened in it.
 3. **Strict CSP response header** on every plugin file, set by the scheme handler:
    `default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
    img-src 'self' data: blob:; font-src 'self' data:; worker-src 'self' blob:; connect-src 'none';
-   frame-src 'none'; form-action 'none'; base-uri 'none'`. No network, so no exfiltration.
+   frame-src 'none'; form-action 'none'; base-uri 'none'`, plus `X-DNS-Prefetch-Control: off`.
+   CSP does not cover WebRTC, so the scheme injects `plugins/lockdown.js` as the first script of every
+   plugin page: it removes the `RTC*` constructors from the window and from every same-origin child
+   frame (it re-locks frames after each DOM insertion API, since `window[n]` can't be intercepted).
+   WebKitGTK ships with WebRTC off; WebView2 and WKWebView rely on the lockdown. No network, so no
+   exfiltration.
 4. **Sender identity from the frame.** The broker maps `event.source` to the iframe it created. It never
    trusts an id or plugin name inside the message.
 5. **Narrow protocol.** Only the messages listed below. Unknown methods are rejected. Payload size capped.

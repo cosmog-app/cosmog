@@ -3,7 +3,7 @@ mod common;
 use std::path::{Path, PathBuf};
 
 use cosmog_lib::db::Db;
-use cosmog_lib::plugins::scheme::{mime_for, resolve, serve, PLUGIN_CSP};
+use cosmog_lib::plugins::scheme::{inject_lockdown, mime_for, resolve, serve, PLUGIN_CSP};
 use cosmog_lib::plugins::{dev, PluginRegistry};
 use tauri::http::{header, Method, Request, StatusCode};
 
@@ -33,7 +33,8 @@ async fn serves_entry_with_csp_and_mime() {
     assert_eq!(h[header::CONTENT_SECURITY_POLICY], PLUGIN_CSP);
     assert_eq!(h[header::X_CONTENT_TYPE_OPTIONS], "nosniff");
     assert_eq!(h[header::ACCESS_CONTROL_ALLOW_ORIGIN], "*");
-    let expected = std::fs::read(fixture().join("index.html")).unwrap();
+    assert_eq!(h["x-dns-prefetch-control"], "off");
+    let expected = inject_lockdown(&std::fs::read(fixture().join("index.html")).unwrap());
     assert_eq!(resp.body(), &expected);
 
     let js = serve(reg.root(), &reg, &req(Method::GET, "/hello/0.1.0/main.js")).await;
@@ -128,4 +129,29 @@ fn mime_table() {
     ] {
         assert_eq!(mime_for(Path::new(f)), m, "{f}");
     }
+}
+
+#[test]
+fn lockdown_runs_before_any_plugin_script() {
+    let tag = r#"<script src="/__cosmog/lockdown.js"></script>"#;
+    let out = String::from_utf8(inject_lockdown(b"<!doctype html><HTML><Head lang=x><script src=a.js></script></head>")).unwrap();
+    assert_eq!(out, format!("<!doctype html><HTML><Head lang=x>{tag}<script src=a.js></script></head>"));
+    // No <head>: still first.
+    let out = String::from_utf8(inject_lockdown(b"<script src=a.js></script>")).unwrap();
+    assert!(out.starts_with(tag));
+    // Fixture page: the tag precedes the fixture's own first script.
+    let html = String::from_utf8(inject_lockdown(&std::fs::read(fixture().join("index.html")).unwrap())).unwrap();
+    let first = html.find("<script").unwrap();
+    assert!(html[first..].starts_with(tag), "first script is the lockdown");
+}
+
+#[tokio::test]
+async fn lockdown_script_is_served_with_csp_and_strips_rtc() {
+    let (_db, reg, _td) = setup().await;
+    let resp = serve(reg.root(), &reg, &req(Method::GET, "/__cosmog/lockdown.js")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(resp.headers()[header::CONTENT_TYPE], "text/javascript; charset=utf-8");
+    assert_eq!(resp.headers()[header::CONTENT_SECURITY_POLICY], PLUGIN_CSP);
+    let js = String::from_utf8(resp.body().clone()).unwrap();
+    assert!(js.contains("RTC") && js.contains("lockFrames"));
 }

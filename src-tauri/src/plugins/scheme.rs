@@ -10,6 +10,10 @@ use super::PluginRegistry;
 
 pub const SCHEME: &str = "cosmog-plugin";
 
+/// Path of the host script injected into every plugin page; no plugin id starts with `_`.
+const LOCKDOWN_PATH: &str = "/__cosmog/lockdown.js";
+const LOCKDOWN_JS: &str = include_str!("lockdown.js");
+
 /// Largest single file served; bigger assets should be split by the plugin build.
 const MAX_FILE_BYTES: u64 = 64 * 1024 * 1024;
 
@@ -85,6 +89,8 @@ fn base(status: StatusCode) -> tauri::http::response::Builder {
         .header(header::CONTENT_SECURITY_POLICY, PLUGIN_CSP)
         .header(header::X_CONTENT_TYPE_OPTIONS, "nosniff")
         .header(header::REFERRER_POLICY, "no-referrer")
+        // DNS prefetch is outside CSP and would leak names a plugin puts in links.
+        .header("x-dns-prefetch-control", "off")
         .header(header::CACHE_CONTROL, "no-store")
         // Sandboxed frames have an opaque origin, so fonts, module scripts and workers load as CORS.
         .header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
@@ -97,10 +103,32 @@ fn status_only(status: StatusCode) -> Response<Vec<u8>> {
         .unwrap_or_else(|_| Response::new(Vec::new()))
 }
 
+/// Puts the lockdown script first in the page, so it runs before any plugin script.
+pub fn inject_lockdown(html: &[u8]) -> Vec<u8> {
+    let tag = format!("<script src=\"{LOCKDOWN_PATH}\"></script>");
+    let lower = html.to_ascii_lowercase();
+    let at = lower
+        .windows(5)
+        .position(|w| w == b"<head")
+        .and_then(|i| lower[i..].iter().position(|&b| b == b'>').map(|j| i + j + 1))
+        .unwrap_or(0);
+    let mut out = Vec::with_capacity(html.len() + tag.len());
+    out.extend_from_slice(&html[..at]);
+    out.extend_from_slice(tag.as_bytes());
+    out.extend_from_slice(&html[at..]);
+    out
+}
+
 pub async fn serve(root: &Path, registry: &PluginRegistry, req: &Request<Vec<u8>>) -> Response<Vec<u8>> {
     let head = req.method() == Method::HEAD;
     if req.method() != Method::GET && !head {
         return status_only(StatusCode::METHOD_NOT_ALLOWED);
+    }
+    if req.uri().path() == LOCKDOWN_PATH {
+        return base(StatusCode::OK)
+            .header(header::CONTENT_TYPE, "text/javascript; charset=utf-8")
+            .body(if head { Vec::new() } else { LOCKDOWN_JS.as_bytes().to_vec() })
+            .unwrap_or_else(|_| status_only(StatusCode::INTERNAL_SERVER_ERROR));
     }
     let path = match resolve(root, registry, req.uri().path()) {
         Ok(p) => p,
@@ -121,8 +149,10 @@ pub async fn serve(root: &Path, registry: &PluginRegistry, req: &Request<Vec<u8>
             }
         }
     };
+    let mime = mime_for(&path);
+    let body = if mime.starts_with("text/html") && !head { inject_lockdown(&body) } else { body };
     base(StatusCode::OK)
-        .header(header::CONTENT_TYPE, mime_for(&path))
+        .header(header::CONTENT_TYPE, mime)
         .body(body)
         .unwrap_or_else(|_| status_only(StatusCode::INTERNAL_SERVER_ERROR))
 }
