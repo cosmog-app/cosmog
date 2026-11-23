@@ -17,6 +17,7 @@ export default {
   "plugins.installing": "Installing {pct}%",
   "plugins.install.done": "{name} installed",
   "plugins.update.done": "{name} updated to {version}",
+  "plugins.updating.wait": "{name} is updating. Open the file again in a moment.",
   "plugins.unavailable.app": "Needs Cosmog {version} or newer",
   "plugins.detail.back": "Back to plugins",
   "plugins.detail.author": "by {author}",

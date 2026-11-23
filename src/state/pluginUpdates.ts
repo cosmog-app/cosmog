@@ -7,7 +7,7 @@ import { storeStatus } from "../routes/plugins/storeStatus";
 import { isDesktopShell } from "../utils/platform";
 import { t } from "../i18n";
 import { getPref, setPref } from "./prefs";
-import { openDoc, pluginsInstalled, refreshPlugins } from "./plugins";
+import { openDoc, pluginsInstalled, refreshPlugins, setUpdatingPlugin } from "./plugins";
 import { writeStoreCache } from "./pluginStoreCache";
 import { toast } from "./toast";
 
@@ -43,12 +43,15 @@ async function updatePlugins() {
     for (const e of entries) {
       const p = installed.find((i) => i.id === e.id);
       if (!p || storeStatus(e, p, version).kind !== "update" || openDoc()?.plugin.id === e.id) continue;
+      setUpdatingPlugin(e.id);
       try {
         const m = await pluginInstall(e.id);
         changed = true;
         toast.ok(t("plugins.update.done", { name: m.manifest.name, version: m.version }));
       } catch (err) {
         console.warn(`plugin auto-update ${e.id} failed`, err);
+      } finally {
+        setUpdatingPlugin(null);
       }
     }
   } catch (err) {
